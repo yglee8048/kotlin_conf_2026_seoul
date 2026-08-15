@@ -2,8 +2,5 @@ spring:
   application:
     name: demo
 
-# 3단계 시연용. MDC 의 traceId 를 로그 패턴에 노출한다.
-# 전파가 안 된 스레드에서는 `trace=none` 이 찍힌다.
-logging:
-  pattern:
-    console: "%d{HH:mm:ss.SSS} %-5level [%-20.20t] [trace=%X{traceId:-none}] %-22.22logger{0} : %m%n"
+# 로그 패턴은 logback-spring.xml 에 있다.
+# 스레드 종류(P/V)를 찍는 커스텀 conversionRule 이 필요해서 yaml 로는 표현할 수 없다.
