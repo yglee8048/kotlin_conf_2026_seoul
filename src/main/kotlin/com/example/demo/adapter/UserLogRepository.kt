@@ -2,6 +2,7 @@ package com.example.demo.adapter
 
 import com.example.demo.config.AsyncConfig.Companion.LOG_TASK_EXECUTOR
 import com.example.demo.config.ContextAwareAsyncConfig.Companion.LOG_TASK_EXECUTOR_V3
+import com.example.demo.config.ContextPropagationConfig.Companion.LOG_TASK_EXECUTOR_V7
 import com.example.demo.domain.UserEvent
 import com.example.demo.utils.callContextLabel
 import com.example.demo.utils.mockLatency
@@ -64,6 +65,23 @@ class UserLogRepository {
      */
     @Async(LOG_TASK_EXECUTOR_V3)
     fun saveEventAsyncV3(userId: UserId, userEvent: UserEvent) {
+        try {
+            saveEvent(userId, userEvent)
+        } catch (e: Exception) {
+            log.warn("사용자 기록 적재 실패. userId={} event={}", userId.value, userEvent, e)
+        }
+    }
+
+    /**
+     * 7단계 진입점. [saveEventAsyncV3] 와 본문이 같고 executor 만 다르다.
+     *
+     * 차이는 executor 에 걸린 decorator 가 손으로 짠
+     * [com.example.demo.context.CallContextTaskDecorator] 가 아니라
+     * Spring 이 제공하는 `ContextPropagatingTaskDecorator` 라는 점뿐이다.
+     * 전파 대상은 [io.micrometer.context.ContextRegistry] 에 등록된 accessor 들이 결정한다.
+     */
+    @Async(LOG_TASK_EXECUTOR_V7)
+    fun saveEventAsyncV7(userId: UserId, userEvent: UserEvent) {
         try {
             saveEvent(userId, userEvent)
         } catch (e: Exception) {
