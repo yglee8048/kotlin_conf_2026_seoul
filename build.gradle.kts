@@ -52,6 +52,19 @@ kotlin {
     }
 }
 
+// 12단계에서 쓰는 java.util.concurrent.StructuredTaskScope 는 JDK 25 에서 아직 preview 다. (JEP 505)
+// 컴파일과 실행 양쪽에 --enable-preview 가 필요하다.
+// bootJar 로 말아서 실행할 때도 `java --enable-preview -jar ...` 로 띄워야 한다.
+tasks.withType<JavaCompile> {
+    options.compilerArgs.add("--enable-preview")
+}
+
+// BootRun 은 JavaExec 의 하위 타입이라 bootRun 도 함께 걸린다.
+tasks.withType<JavaExec> {
+    jvmArgs("--enable-preview")
+}
+
 tasks.withType<Test> {
     useJUnitPlatform()
+    jvmArgs("--enable-preview")
 }
