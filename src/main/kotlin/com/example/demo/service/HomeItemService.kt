@@ -48,7 +48,7 @@ class HomeItemService(
             HomeItem(
                 accountId = it.accountId,
                 accountType = it.accountType,
-                balance = if (!it.isOpenBank()) {
+                balance = if (it.isOpenBank()) {
                     openBankBalancesByAccountId[it.accountId]?.balance
                 } else {
                     it.balance
