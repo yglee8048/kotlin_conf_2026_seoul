@@ -48,8 +48,8 @@ class UserLogRepository {
     fun saveEventAsync(userId: UserId, userEvent: UserEvent) {
         try {
             saveEvent(userId, userEvent)
-        } catch (t: Throwable) {
-            log.warn("홈 화면 접속 기록 적재 실패. userId={} event={}", userId.value, userEvent, t)
+        } catch (e: Exception) {
+            log.warn("사용자 기록 적재 실패. userId={} event={}", userId.value, userEvent, e)
         }
     }
 
