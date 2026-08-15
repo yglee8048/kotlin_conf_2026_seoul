@@ -35,14 +35,14 @@ total = 1.84s
 로그 (전 구간이 **하나의 톰캣 스레드**):
 
 ```
-55.159 [getAccounts]      start   http-nio-8080-exec-2
-55.464 [getAccounts]      end     http-nio-8080-exec-2
-55.465 [getHomeItemInfos] start   http-nio-8080-exec-2
-55.671 [getHomeItemInfos] end     http-nio-8080-exec-2
-55.678 [getBalances]      start   http-nio-8080-exec-2
-56.183 [getBalances]      end     http-nio-8080-exec-2
-56.187 [saveEvent]        start   http-nio-8080-exec-2
-56.890 [saveEvent]        end     http-nio-8080-exec-2
+23.690 P[http-nio-8080-exec-6] [trace=TRACE-V1] CoreBankAdapter        : [getAccounts] start
+24.000 P[http-nio-8080-exec-6] [trace=TRACE-V1] CoreBankAdapter        : [getAccounts] end
+24.000 P[http-nio-8080-exec-6] [trace=TRACE-V1] HomeItemInfoRepository : [getHomeItemInfos] start
+24.208 P[http-nio-8080-exec-6] [trace=TRACE-V1] HomeItemInfoRepository : [getHomeItemInfos] end
+24.208 P[http-nio-8080-exec-6] [trace=TRACE-V1] OpenBankingAdapter     : [getBalances] start
+24.719 P[http-nio-8080-exec-6] [trace=TRACE-V1] OpenBankingAdapter     : [getBalances] end
+24.721 P[http-nio-8080-exec-6] [trace=TRACE-V1] UserLogRepository      : [saveEvent] start
+25.421 P[http-nio-8080-exec-6] [trace=TRACE-V1] UserLogRepository      : [saveEvent] end
 ```
 
 300 + 200 + 500 + 700 = 1700ms. 나머지는 프레임워크 오버헤드.
@@ -53,7 +53,7 @@ total = 1.84s
 
 - 위에서 아래로 읽힌다. 실행 순서 = 코드 순서.
 - 디버거로 한 줄씩 따라갈 수 있다. 스택 트레이스가 온전하다.
-- `ThreadLocal` 이 그냥 동작한다. MDC, SecurityContext, 트랜잭션 동기화 전부 공짜다.
+- `ThreadLocal` 이 그냥 동작한다. MDC, SecurityContext, 트랜잭션 동기화 전부 공짜다. (→ 3단계에서 잃는다)
 - 예외 처리가 `try/catch` 하나로 끝난다.
 
 **이 장점들은 앞으로 여러 단계에 걸쳐 하나씩 잃게 된다.** 그걸 되찾는 과정이 이 발표다.

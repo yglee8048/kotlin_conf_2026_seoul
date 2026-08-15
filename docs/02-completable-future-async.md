@@ -37,15 +37,15 @@ V2  0.82s
 ```
 
 ```
-34.733 [getAccounts]      start   http-nio-8080-exec-4
-35.039 [getAccounts]      end     http-nio-8080-exec-4
-35.040 [getHomeItemInfos] start   home-info-1        ┐ 병렬, 서로 다른 풀
-35.040 [getBalances]      start   open-banking-1     ┘
-35.043 [saveEvent]        start   user-log-1         ← @Async
-35.242 [getHomeItemInfos] end     home-info-1
-35.542 [getBalances]      end     open-banking-1
-                                   ★ 여기서 응답 반환
-35.743 [saveEvent]        end     user-log-1         ← 응답 뒤에도 실행 중
+47.582 P[http-nio-8080-exec-2] CoreBankAdapter        : [getAccounts] start
+47.887 P[http-nio-8080-exec-2] CoreBankAdapter        : [getAccounts] end
+47.895 P[home-info-1         ] HomeItemInfoRepository : [getHomeItemInfos] start   ┐ 병렬, 서로 다른 풀
+47.895 P[open-banking-1      ] OpenBankingAdapter     : [getBalances] start        ┘
+47.900 P[user-log-1          ] UserLogRepository      : [saveEvent] start          ← @Async
+48.100 P[home-info-1         ] HomeItemInfoRepository : [getHomeItemInfos] end
+48.396 P[open-banking-1      ] OpenBankingAdapter     : [getBalances] end
+                              ★ 여기서 응답 반환
+48.604 P[user-log-1          ] UserLogRepository      : [saveEvent] end            ← 응답 뒤에도 실행 중
 ```
 
 300 + max(200, 500) = 800ms.
@@ -112,7 +112,8 @@ DB 풀이 10인데 executor 를 50으로 잡으면 connection 대기로 바뀔 �
 CallerRuns 로 "순차 실행으로 degrade" 시키는 게 합리적이다.
 
 > 발표 포인트: thread pool 은 애초에 동시성 제한 도구로 쓰기 불편하다.
-> 정책이 **새거나(CallerRuns) 버리거나(Abort)** 둘 중 하나다. → 11단계 `@ConcurrencyLimit`
+> 정책이 **새거나(CallerRuns) 버리거나(Abort)** 둘 중 하나다.
+> → [11단계](11-resilience.md) `@ConcurrencyLimit` 에서 "기다리거나(BLOCK) 거절하거나(REJECT)" 가 된다.
 
 주의: `CompletableFuture.supplyAsync(supplier, executor)` 는 거절 시
 `RejectedExecutionException` 을 **호출 스레드에서 동기로** 던진다. Future 안에 담기지 않는다.
@@ -170,12 +171,14 @@ task **안에서** 이미 예외를 잡아 전역 핸들러로 넘긴다. decora
 응답 시간은 절반이 됐다. 그런데 코드를 보고 답할 수 없는 질문이 남는다.
 **스크립트 슬라이드 5의 질문들을 여기서 실제 코드 위에 얹는다.**
 
-1. 두 Future 가 **현재 HTTP 요청의 자식**이라는 관계가 코드 어디에도 없다.
-2. 하나가 실패해도 나머지는 취소되지 않는다.
-3. 클라이언트가 연결을 끊어도 executor 의 작업은 끝까지 돈다.
-4. **작업 묶음 전체에 거는 timeout** 을 표현할 자리가 없다. (개별 `orTimeout` 은 묶음이 아니다)
-5. MDC / SecurityContext 가 executor 스레드로 안 넘어간다. → 3단계
-6. 하위 시스템이 하나 늘 때마다 Executor 와 그 크기를 다시 고민해야 한다.
+1. 두 Future 가 **현재 HTTP 요청의 자식**이라는 관계가 코드 어디에도 없다. → [5단계](05-coroutine-structured-concurrency.md)
+2. 하나가 실패해도 나머지는 취소되지 않는다. → [5단계](05-coroutine-structured-concurrency.md)
+3. 클라이언트가 연결을 끊어도 executor 의 작업은 끝까지 돈다. → [6단계](06-suspend-controller.md)
+4. **작업 묶음 전체에 거는 timeout** 을 표현할 자리가 없다. (개별 `orTimeout` 은 묶음이 아니다) → [11단계](11-resilience.md)
+5. MDC / SecurityContext 가 executor 스레드로 안 넘어간다. → [3단계](03-context-propagation.md) / [7단계](07-context-accessor.md)
+6. 하위 시스템이 하나 늘 때마다 Executor 와 그 크기를 다시 고민해야 한다. → [6단계](06-suspend-controller.md) / [10단계](10-virtual-thread-dispatcher.md)
+
+> **이 목록은 발표 전체의 뼈대다.** 11단계에서 하나씩 지워가며 결산한다.
 
 > 공통점: **동시 작업의 관계와 수명이 코드에 표현되어 있지 않다.**
 > 두 작업을 시작했다는 사실만 있고, 누가 부모인지·언제까지 살아야 하는지는
@@ -186,7 +189,8 @@ task **안에서** 이미 예외를 잡아 전역 핸들러로 넘긴다. decora
 **톰캣 스레드는 여전히 응답까지 붙잡혀 있다.** 800ms 내내 점유 중이다.
 1단계에서 1.7초였던 게 0.8초가 됐을 뿐, 점유 구조는 그대로다.
 
-이건 4단계(Deferred 응답)와 6단계(suspend controller), 8단계(VT)의 주제다.
+이건 [4단계](04-deferred-result.md)(Deferred 응답)와
+[6단계](06-suspend-controller.md)(suspend controller), [8단계](08-virtual-thread.md)(VT)의 주제다.
 2단계에서 응답 시간이 절반이 된 걸 보고 "해결됐다"고 넘어가지 않게 여기서 못을 박는다.
 
 ## 시연 팁
@@ -198,5 +202,5 @@ task **안에서** 이미 예외를 잡아 전역 핸들러로 넘긴다. decora
 
 ## 다음 단계로
 
-3단계는 위 목록의 5번(MDC / ThreadLocal 전파)을 다룬다.
-`home-info-1` 스레드의 로그에 traceId 가 안 찍히는 걸 먼저 보여주고 시작하면 자연스럽다.
+3단계는 위 목록의 5번(MDC / ThreadLocal 전파)을 다룬다. → [03](03-context-propagation.md)
+`home-info-1` 스레드의 로그에 `trace=none` 이 찍히는 걸 먼저 보여주고 시작하면 자연스럽다.
