@@ -9,6 +9,7 @@ import com.example.demo.repository.HomeItemInfoRepository
 import com.example.demo.vo.HomeCardColor
 import com.example.demo.vo.HomeCardImage
 import com.example.demo.vo.UserId
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
 @Service
@@ -18,6 +19,8 @@ class HomeItemService(
     val openBankingAdapter: OpenBankingAdapter,
     val userLogRepository: UserLogRepository,
 ) {
+    private val log = LoggerFactory.getLogger(HomeItemService::class.java)
+
     fun getHomeItems(userId: UserId): List<HomeItem> {
         // 코어뱅킹에서 계좌 목록 조회
         val accounts = coreBankAdapter.getAccounts(userId)
@@ -40,7 +43,11 @@ class HomeItemService(
         }
 
         // 홈 화면 접속 기록 적재
-        userLogRepository.saveEvent(userId, UserEvent.GET_HOME)
+        try {
+            userLogRepository.saveEvent(userId, UserEvent.GET_HOME)
+        } catch (e: Exception) {
+            log.warn("홈 화면 접속 기록 적재 실패. userId={}", userId, e)
+        }
 
         // 응답 조립
         return accounts.map {
