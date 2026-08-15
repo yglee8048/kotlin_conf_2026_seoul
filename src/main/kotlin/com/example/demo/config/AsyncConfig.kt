@@ -97,8 +97,7 @@ class AsyncConfig : AsyncConfigurer {
             maxPoolSize = 10
             queueCapacity = 500
             setThreadNamePrefix("user-log-")
-            // 로그는 유실되어도 응답에 영향을 주지 않는다. 큐가 넘치면 버린다.
-            setRejectedExecutionHandler(ThreadPoolExecutor.DiscardPolicy())
+            setRejectedExecutionHandler(ThreadPoolExecutor.DiscardPolicy()) // 큐가 가득 찬 경우 예외 없이 버린다
             setWaitForTasksToCompleteOnShutdown(true)
             setAwaitTerminationSeconds(10)
         }
