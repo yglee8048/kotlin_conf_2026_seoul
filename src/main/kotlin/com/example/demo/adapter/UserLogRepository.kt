@@ -1,7 +1,10 @@
 package com.example.demo.adapter
 
 import com.example.demo.config.AsyncConfig.Companion.LOG_TASK_EXECUTOR
+import com.example.demo.config.ContextAwareAsyncConfig.Companion.LOG_TASK_EXECUTOR_V3
 import com.example.demo.domain.UserEvent
+import com.example.demo.utils.callContextLabel
+import com.example.demo.utils.mockLatency
 import com.example.demo.vo.UserId
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Async
@@ -18,9 +21,9 @@ class UserLogRepository {
      * 응답 본문에 쓰이지 않는다. 1단계에서는 이 700ms 가 그대로 응답 시간에 더해진다.
      */
     fun saveEvent(userId: UserId, userEvent: UserEvent) {
-        log.info("[saveEvent] start   userId={} event={} thread={}", userId.value, userEvent, Thread.currentThread())
-        Thread.sleep(LATENCY_MILLIS)
-        log.info("[saveEvent] end     userId={} event={} thread={}", userId.value, userEvent, Thread.currentThread())
+        log.info("[saveEvent] start   userId={} event={} ctx={}", userId.value, userEvent, callContextLabel())
+        mockLatency(log, "saveEvent", LATENCY_MILLIS)
+        log.info("[saveEvent] end     userId={} event={} ctx={}", userId.value, userEvent, callContextLabel())
     }
 
     /**
@@ -46,6 +49,21 @@ class UserLogRepository {
      */
     @Async(LOG_TASK_EXECUTOR)
     fun saveEventAsync(userId: UserId, userEvent: UserEvent) {
+        try {
+            saveEvent(userId, userEvent)
+        } catch (e: Exception) {
+            log.warn("사용자 기록 적재 실패. userId={} event={}", userId.value, userEvent, e)
+        }
+    }
+
+    /**
+     * 3단계 진입점. [saveEventAsync] 와 **본문이 완전히 같고 executor 만 다르다.**
+     *
+     * 컨텍스트 전파를 위해 호출부나 메서드 본문에 추가한 코드가 하나도 없다는 것이 요점이다.
+     * decorator 가 executor 에 붙어 있으므로 `@Async` 경로도 그냥 따라온다.
+     */
+    @Async(LOG_TASK_EXECUTOR_V3)
+    fun saveEventAsyncV3(userId: UserId, userEvent: UserEvent) {
         try {
             saveEvent(userId, userEvent)
         } catch (e: Exception) {

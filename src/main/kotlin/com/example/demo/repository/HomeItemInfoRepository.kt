@@ -1,6 +1,8 @@
 package com.example.demo.repository
 
 import com.example.demo.domain.HomeCardInfo
+import com.example.demo.utils.callContextLabel
+import com.example.demo.utils.mockLatency
 import com.example.demo.vo.AccountId
 import com.example.demo.vo.HomeCardColor
 import com.example.demo.vo.HomeCardImage
@@ -18,9 +20,9 @@ class HomeItemInfoRepository {
      * 사용자가 개인화하지 않은 계좌는 행이 없으므로, 요청한 계좌보다 적게 반환된다.
      */
     fun getHomeItemInfos(accountIds: List<AccountId>): List<HomeCardInfo> {
-        log.info("[getHomeItemInfos] start   size={} thread={}", accountIds.size, Thread.currentThread())
-        Thread.sleep(LATENCY_MILLIS)
-        log.info("[getHomeItemInfos] end     size={} thread={}", accountIds.size, Thread.currentThread())
+        log.info("[getHomeItemInfos] start   size={} ctx={}", accountIds.size, callContextLabel())
+        mockLatency(log, "getHomeItemInfos", LATENCY_MILLIS)
+        log.info("[getHomeItemInfos] end     size={} ctx={}", accountIds.size, callContextLabel())
 
         // 마지막 계좌는 개인화 정보가 없는 것으로 두어 기본값 fallback 을 보여준다.
         return accountIds.dropLast(1).mapIndexed { index, accountId ->

@@ -1,12 +1,14 @@
 package com.example.demo.adapter
 
 import com.example.demo.domain.Account
+import com.example.demo.utils.callContextLabel
+import com.example.demo.utils.mockLatency
 import com.example.demo.vo.AccountId
 import com.example.demo.vo.AccountType
 import com.example.demo.vo.UserId
+import java.math.BigDecimal
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
-import java.math.BigDecimal
 
 private val log = LoggerFactory.getLogger(CoreBankAdapter::class.java)
 
@@ -15,9 +17,9 @@ class CoreBankAdapter {
 
     /** 코어뱅킹 계좌 목록 조회 (mock, 300ms) */
     fun getAccounts(userId: UserId): List<Account> {
-        log.info("[getAccounts] start   userId={} thread={}", userId.value, Thread.currentThread())
-        Thread.sleep(LATENCY_MILLIS)
-        log.info("[getAccounts] end     userId={} thread={}", userId.value, Thread.currentThread())
+        log.info("[getAccounts] start   userId={} ctx={}", userId.value, callContextLabel())
+        mockLatency(log, "getAccounts", LATENCY_MILLIS)
+        log.info("[getAccounts] end     userId={} ctx={}", userId.value, callContextLabel())
 
         return listOf(
             Account(
