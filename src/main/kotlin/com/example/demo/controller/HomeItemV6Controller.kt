@@ -30,13 +30,13 @@ private val log = LoggerFactory.getLogger(HomeItemV6Controller::class.java)
  *
  * | | 4단계 | 6단계 |
  * |---|---|---|
- * | 톰캣 스레드 반납 | O | O |
+ * | 톰캣 스레드 점유 | 320ms (코어뱅킹 구간) | ~1ms |
  * | 코드가 위에서 아래로 | X | O |
  * | 구조적 동시성 | X | O |
  * | 컨트롤러 반환 타입 | `DeferredResult<T>` | `T` |
- * | 새로 만든 executor | 1개 (core-bank) | 0개 |
+ * | 하위 시스템마다 executor | 필요 (3개) | 불필요 — dispatcher 하나 |
  *
- * 마지막 두 줄이 흥미롭다. 비동기가 되었는데 **시그니처는 1단계와 같다.**
+ * 비동기가 되었는데 **시그니처는 1단계와 같다.**
  *
  * ## 주의
  *

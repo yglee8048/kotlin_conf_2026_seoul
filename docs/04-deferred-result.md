@@ -1,23 +1,23 @@
 # 4단계. DeferredResult 로 톰캣 스레드 반납
 
-> 응답 시간은 그대로다. 대신 톰캣 스레드가 자유로워지고, 코드는 읽기 어려워진다.
+> 응답 시간은 그대로다. 대신 톰캣 스레드의 `join()` 대기가 사라지고, 코드는 읽기 어려워진다.
 
 ## 코드
 
 - `controller/HomeItemV4Controller.kt` → `GET /api/v4/home/items`
 - `service/HomeItemServiceV4.kt`
-- `config/ContextAwareAsyncConfig.coreBankTaskExecutorV3` (이번에 추가)
 
-3단계까지 남아 있던 마지막 낭비를 없앤다.
+3단계까지 남아 있던 낭비를 줄인다.
 
-> 병렬로 만들어도 톰캣 스레드는 응답이 완성될 때까지 계속 붙잡혀 있었다.
+> 병렬로 만들어도 톰캣 스레드는 `join()` 으로 결과를 기다리며 응답까지 붙잡혀 있었다.
 
 ```kotlin
 // 서비스가 값이 아니라 CompletableFuture 를 반환한다
-fun getHomeItemsV4(userId: UserId, failFast: Boolean = false): CompletableFuture<List<HomeItem>> =
-    CompletableFuture
-        .supplyAsync({ coreBankAdapter.getAccounts(userId) }, coreBankTaskExecutor)
-        .thenCompose { accounts -> composeRest(userId, accounts, failFast) }
+fun getHomeItemsV4(userId: UserId, failFast: Boolean = false): CompletableFuture<List<HomeItem>> {
+    // 코어뱅킹 조회는 blocking 그대로 — 뒤의 두 조회가 이 결과에 의존하므로 어차피 기다려야 한다
+    val accounts = coreBankAdapter.getAccounts(userId)
+    return composeRest(userId, accounts, failFast)   // join() 없이 thenCombine 체인
+}
 
 // 컨트롤러는 DeferredResult 를 반환하고 즉시 끝난다
 val deferredResult = DeferredResult<List<HomeItem>>(3_000)
@@ -28,56 +28,56 @@ return deferredResult
 ## 측정 결과
 
 ```
-V3  0.83s   톰캣 스레드 점유 800ms
-V4  0.97s   톰캣 스레드 점유 2ms
+V3  0.83s   톰캣 스레드 점유 830ms
+V4  0.87s   톰캣 스레드 점유 320ms  (= 코어뱅킹 조회 구간만)
 ```
 
 ```
-54.964 V[http-nio-8080-exec-1] [trace=TR-V4] HomeItemV4Controller   : [v4] 진입
-54.966 P[core-bank-v3-1      ] [trace=TR-V4] CoreBankAdapter        : [getAccounts] start
-54.966 P[http-nio-8080-exec-1] [trace=TR-V4] HomeItemV4Controller   : [v4] 반환 (톰캣 스레드 반납)   ← 2ms
-55.270 P[core-bank-v3-1      ] [trace=TR-V4] CoreBankAdapter        : [getAccounts] end
-55.272 P[home-info-v3-1      ] [trace=TR-V4] HomeItemInfoRepository : [getHomeItemInfos] start   ┐ 병렬
-55.273 P[open-banking-v3-1   ] [trace=TR-V4] OpenBankingAdapter     : [getBalances] start        ┘
-55.275 P[user-log-v3-1       ] [trace=TR-V4] UserLogRepository      : [saveEvent] start
-55.476 P[home-info-v3-1      ] [trace=TR-V4] HomeItemInfoRepository : [getHomeItemInfos] end
-55.773 P[open-banking-v3-1   ] [trace=TR-V4] OpenBankingAdapter     : [getBalances] end
+24.928 P[http-nio-8080-exec-9] [trace=TR-V4] HomeItemV4Controller   : [v4] 진입
+24.929 P[http-nio-8080-exec-9] [trace=TR-V4] CoreBankAdapter        : [getAccounts] start   ← 톰캣 스레드
+25.232 P[http-nio-8080-exec-9] [trace=TR-V4] CoreBankAdapter        : [getAccounts] end
+25.237 P[home-info-v3-2      ] [trace=TR-V4] HomeItemInfoRepository : [getHomeItemInfos] start   ┐ 병렬
+25.247 P[open-banking-v3-2   ] [trace=TR-V4] OpenBankingAdapter     : [getBalances] start        ┘
+25.248 P[user-log-v3-2       ] [trace=TR-V4] UserLogRepository      : [saveEvent] start
+25.249 P[http-nio-8080-exec-9] [trace=TR-V4] HomeItemV4Controller   : [v4] 반환 (톰캣 스레드 반납)   ← 321ms
+25.443 P[home-info-v3-2      ] [trace=TR-V4] HomeItemInfoRepository : [getHomeItemInfos] end
+25.751 P[open-banking-v3-2   ] [trace=TR-V4] OpenBankingAdapter     : [getBalances] end
                                             ★ 여기서 응답 반환 (톰캣 스레드는 이미 딴 일 하는 중)
-55.981 P[user-log-v3-1       ] [trace=TR-V4] UserLogRepository      : [saveEvent] end
+25.955 P[user-log-v3-2       ] [trace=TR-V4] UserLogRepository      : [saveEvent] end
 ```
 
-**시연 포인트**: `[v4] 진입` 과 `[v4] 반환` 이 **2ms 차이**로 붙어 있는 것.
-1단계는 이 자리에서 1.8초, 2·3단계는 0.8초를 붙잡고 있었다.
+**시연 포인트**: `[v4] 반환` 이 병렬 조회 **start 직후**에 찍히는 것.
+2·3단계는 `getBalances` 가 **끝날 때까지**(830ms) 이 자리를 붙잡고 있었다.
+500ms 짜리 `join()` 대기가 사라지고, 남은 점유는 코어뱅킹 조회 320ms 뿐이다.
 
 ## 말할 내용
 
-### 1. 톰캣 스레드를 반납하려면 체인 전체가 비동기여야 한다
+### 1. 코어뱅킹 조회는 왜 blocking 으로 남겼나 (질문 나올 지점)
 
-3단계까지는 코어뱅킹 조회(300ms)를 톰캣 스레드에서 그냥 했다.
-그 상태로 `DeferredResult` 만 반환하면 톰캣 스레드는 여전히 300ms 붙잡힌다.
+코어뱅킹 조회까지 executor 로 넘기면 점유를 ~0ms 로 만들 수도 있다. 안 한 이유:
 
-그래서 **executor 를 하나 더 만들었다.** (`core-bank-v3-`)
+- 대기가 톰캣 스레드에서 executor 스레드로 **자리만 옮겨갈 뿐** thread·ms 총량은 같다
+- 스레드 hop 비용이 추가되고, 하위 시스템마다 executor 를 만들고 크기를 고민해야 한다
+- 이득은 과부하 시 "풀 한도를 넘는 대기가 스레드가 아니라 큐 항목으로 표현된다" 는 것뿐
 
-> 비동기로 만들려면 blocking 이 하나라도 남으면 안 되고,
-> 그 말은 호출하는 하위 시스템마다 executor 를 준비해야 한다는 뜻이다.
+평시 실익이 없는 복잡도라 감수하지 않았다. 반면 `join()` 대기는 성격이 다르다 —
+**이미 다른 스레드가 하고 있는 일을 앉아서 기다리는 순수 낭비**라 콜백으로 없앨 가치가 있다.
 
-2단계에서 "하위 시스템이 늘 때마다 Executor 를 다시 고민해야 한다" 고 적어둔 항목이
-여기서 실제로 청구서로 돌아온다.
+> 점유를 진짜 0 으로 만드는 것은 6단계 suspend 컨트롤러가 executor 추가 없이 해준다.
+> CompletableFuture 로 거기까지 가는 건 비용 대비 효과가 없다.
 
 ### 2. 얻은 것과 잃은 것
 
 | | 3단계 | 4단계 |
 |---|---|---|
-| 응답 시간 | 0.83s | 0.97s |
-| 톰캣 스레드 점유 | 800ms | **2ms** |
+| 응답 시간 | 0.83s | 0.87s |
+| 톰캣 스레드 점유 | 830ms | **320ms** |
 | 코드가 위에서 아래로 읽힘 | O | **X** |
 | 조립 로직 위치 | 마지막 return 문 | 콜백 안 |
-| executor 개수 | 3 | **4** |
 
-응답 시간이 오히려 조금 늘었다. 스레드 hop 이 하나 늘었기 때문이다.
 **4단계는 응답 시간을 줄이는 게 아니라 처리량을 늘리는 최적화다.**
 이 구분을 명확히 해야 한다. Little's Law 로 돌아가서,
-톰캣 스레드 200개로 처리할 수 있는 초당 요청 수가 250 → 100000 수준으로 바뀐다.
+같은 톰캣 풀로 감당할 수 있는 동시 요청이 점유 시간에 반비례해 2.6배로 늘어난다.
 
 ### 3. `DeferredResult` 의 timeout 은 작업을 취소하지 않는다
 

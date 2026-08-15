@@ -41,7 +41,7 @@ fun getHomeItemsV5(userId: UserId, failFast: Boolean = false): List<HomeItem> {
 ## 측정 결과
 
 ```
-V4  0.97s   톰캣 스레드 점유 2ms
+V4  0.87s   톰캣 스레드 점유 320ms
 V5  1.00s   톰캣 스레드 점유 828ms   ← 오히려 나빠졌다
 ```
 
@@ -83,18 +83,23 @@ V5  1.00s   톰캣 스레드 점유 828ms   ← 오히려 나빠졌다
 WebFlux 처럼 전체 스택을 갈아엎어야 하는 전환이 아니라는 것이
 이 발표 제목("blocking MVC 에서 코루틴이 여전히 유효한가")에 대한 가장 실용적인 답이다.
 
-### 2. 4단계 코드와 나란히 놓는다
+### 2. 비교는 3단계와 한다 (4단계가 아니라)
 
-슬라이드 두 장을 좌우로 붙여놓는 것만으로 절반이 끝난다.
+5단계는 톰캣 스레드를 828ms 붙잡는다. 스레드를 반납하는 4단계와 붙이면 불공정한 비교다.
+같은 스레드 프로파일(병렬 + 점유 830ms)인 **3단계**와 붙여야 코드 구조의 차이만 남는다.
 
-| | 4단계 | 5단계 |
+| | 3단계 (Future) | 5단계 (Coroutine) |
 |---|---|---|
-| 서비스 반환 타입 | `CompletableFuture<List<HomeItem>>` | `List<HomeItem>` |
-| 컨트롤러 반환 타입 | `DeferredResult<List<HomeItem>>` | `List<HomeItem>` |
-| 결과 꺼내기 | `thenCombine { a, b -> }` | `a.await()`, `b.await()` |
-| 조립 로직 | 콜백 안 | 마지막 return 문 |
+| 응답 · 톰캣 점유 | 0.83s · 830ms | 0.85s · 828ms — 같다 |
+| 병렬 구간 코드 | `supplyAsync` + executor 지정 + `join` | `async` + `await` |
+| 하위 시스템마다 executor | 필요 — 크기·거부 정책 고민 | 불필요 — dispatcher 하나 |
+| 실패 시 형제 취소 | 안 됨 | 취소됨 |
 | 예외 | `CompletionException` 으로 감싸짐 | 원래 예외 그대로 |
-| 새로 만든 executor | 1개 (core-bank) | 0개 |
+| 작업 누수 | `join()` 빼먹으면 샌다 | 문법적으로 불가능 |
+| ThreadLocal 전파 | decorator 로 해결해둠 | **다시 잃었다** → 7단계 |
+
+**4단계(DeferredResult)와의 비교는 6단계를 구현한 뒤에 한다.**
+둘 다 톰캣 스레드를 반납하는 시점이라야 공정한 비교가 된다. → [06](06-suspend-controller.md)
 
 `await()` 는 값을 꺼내는 것처럼 **보이지만** 스레드를 막지 않는다.
 그게 코루틴이 파는 것의 전부다: **비동기 코드를 동기 코드처럼 쓰게 해준다.**
@@ -165,6 +170,26 @@ runInterruptible(Dispatchers.IO) { Thread.sleep(5000) } // 취소되면 즉시 �
 라이브러리가 `InterruptedException` 을 삼키면 여기서도 방법이 없다.
 자체 어댑터를 만들 때는 인터럽트를 삼키지 말 것.
 
+### 5-1. 그런데 실전 스택은 인터럽트에 반응하나 (실측)
+
+응답을 주지 않는 서버에 붙여놓고 300ms 뒤 인터럽트를 걸어봤다.
+
+| blocked 지점 | 인터럽트에 | 실측 |
+|---|---|---|
+| Thread.sleep / 풀 대기 / Future.get | 즉시 끊김 | 이 데모의 mock 이 이 부류 |
+| 소켓 read (플랫폼 스레드) | **무시** | 인터럽트 1초 뒤에도 여전히 blocked. JDBC 드라이버 대부분·Apache HttpClient 가 여기 |
+| JDBC 쿼리 (Spring Data JDBC 포함) | **무시** | 끊으려면 `Statement.cancel()` / 쿼리 타임아웃 |
+| JDK HttpClient sync send (RestClient 기본 폴백) | 반응 | 12ms 만에 `InterruptedException` (내부가 async) |
+| 소켓 read (가상 스레드) | 반응 | 5ms 만에 `SocketException` (JEP 444) → 8~10단계 복선 |
+
+mock 이 `Thread.sleep` 이라 이 데모의 취소가 유난히 깔끔한 것이다.
+실전 JDBC·클래식 HTTP 클라이언트에서는 **진행 중인 I/O 가 끝나야 취소가 완료된다.**
+취소 지연이 정말 SLA 라면 non-blocking 클라이언트(WebClient)가 답이다.
+
+그래도 남는 것 — 취소된 스코프는 **아직 시작 안 한 후속 작업을 시작하지 않고**,
+빠져나올 때 자식이 정리됐음은 보장된다.
+진행 중인 I/O 하나가 끝까지 도는 것과 요청 전체가 끝까지 도는 것은 다르다.
+
 ### 6. 실전 팁 — CoroutineScope 를 Bean 으로
 
 접속 기록 적재는 **응답보다 오래 살아야 하는 작업**이다.
@@ -218,7 +243,8 @@ class ApplicationCoroutineScope : CoroutineScope {
 
 ## 시연 팁
 
-- **4단계 코드와 5단계 코드를 좌우로 붙인 슬라이드가 이 발표에서 제일 중요한 한 장이다.**
+- **3단계 코드와 5단계 코드를 좌우로 붙인 비교가 5단계의 핵심 한 장이다.**
+  (4단계와의 비교는 6단계 뒤에서 — 둘 다 스레드를 반납할 때 붙여야 공정하다)
 - 5·6단계를 보여주기 전에 accessor 를 꺼두면 7단계 전후 대비가 선명해진다.
   ```bash
   curl -X POST "localhost:8080/api/demo/context-accessors?enabled=false"

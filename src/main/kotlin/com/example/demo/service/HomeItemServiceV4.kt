@@ -3,7 +3,6 @@ package com.example.demo.service
 import com.example.demo.adapter.CoreBankAdapter
 import com.example.demo.adapter.OpenBankingAdapter
 import com.example.demo.adapter.UserLogRepository
-import com.example.demo.config.ContextAwareAsyncConfig.Companion.CORE_BANK_TASK_EXECUTOR_V3
 import com.example.demo.config.ContextAwareAsyncConfig.Companion.HOME_INFO_TASK_EXECUTOR_V3
 import com.example.demo.config.ContextAwareAsyncConfig.Companion.OPEN_BANKING_TASK_EXECUTOR_V3
 import com.example.demo.domain.Account
@@ -23,15 +22,24 @@ import java.util.concurrent.Executor
 /**
  * 4단계. 서비스가 **값이 아니라 [CompletableFuture] 를 반환**한다.
  *
- * 3단계까지 남아 있던 마지막 낭비를 없앤다.
+ * 3단계까지 남아 있던 낭비를 줄인다.
  *
- * > 병렬로 만들어도 톰캣 스레드는 응답이 완성될 때까지 계속 붙잡혀 있었다.
+ * > 병렬로 만들어도 톰캣 스레드는 `join()` 으로 결과를 기다리며 응답까지 붙잡혀 있었다.
  *
- * 톰캣 스레드를 즉시 반납하려면 **체인 어디에도 blocking 이 남으면 안 된다.**
- * 그래서 3단계까지 톰캣 스레드에서 그냥 호출하던 코어뱅킹 조회(300ms)마저
- * [CORE_BANK_TASK_EXECUTOR_V3] 로 넘긴다. `join()` 은 한 번도 부르지 않는다.
+ * 여기서는 병렬 구간을 콜백 체인(`thenCombine`)으로 걸어두고 즉시 반환한다.
+ * `join()` 은 한 번도 부르지 않는다. 톰캣 스레드 점유는 코어뱅킹 조회(300ms)까지로 줄어든다.
  *
- * **얻는 것**: 톰캣 스레드 점유가 800ms -> 사실상 0ms.
+ * ## 코어뱅킹 조회는 blocking 으로 남겨둔 이유
+ *
+ * 이것까지 executor 로 넘기면 점유를 ~0ms 로 만들 수는 있다. 하지만
+ * - 대기가 톰캣 스레드에서 executor 스레드로 **자리만 옮겨갈 뿐** thread·ms 총량은 같고
+ * - 스레드 hop 비용이 추가되며, 하위 시스템마다 executor 를 만들고 크기를 고민해야 한다
+ * - 이득은 과부하 시 "한도를 넘는 대기를 스레드가 아니라 큐 항목으로 표현"하는 것뿐이다
+ *
+ * 평시 실익이 없는 복잡도라 여기서는 감수하지 않는다.
+ * 점유를 진짜 0 으로 만드는 것은 6단계의 suspend 컨트롤러가 executor 추가 없이 해준다.
+ *
+ * **얻는 것**: 톰캣 스레드 점유가 830ms -> ~300ms (join 대기 제거).
  *
  * **잃는 것**: 코드가 더 이상 위에서 아래로 읽히지 않는다.
  * 1단계의 평범한 6줄이 `thenCompose` / `thenCombine` 중첩으로 바뀌었다.
@@ -52,16 +60,15 @@ class HomeItemServiceV4(
     private val homeItemInfoRepository: HomeItemInfoRepository,
     private val openBankingAdapter: OpenBankingAdapter,
     private val userLogRepository: UserLogRepository,
-    @Qualifier(CORE_BANK_TASK_EXECUTOR_V3) private val coreBankTaskExecutor: Executor,
     @Qualifier(HOME_INFO_TASK_EXECUTOR_V3) private val homeInfoTaskExecutor: Executor,
     @Qualifier(OPEN_BANKING_TASK_EXECUTOR_V3) private val openBankingTaskExecutor: Executor,
 ) {
 
     fun getHomeItemsV4(userId: UserId, failFast: Boolean = false): CompletableFuture<List<HomeItem>> {
-        // 첫 호출부터 executor 로 넘긴다. 여기서 blocking 하면 톰캣 스레드 반납이 무의미해진다.
-        return CompletableFuture
-            .supplyAsync({ coreBankAdapter.getAccounts(userId) }, coreBankTaskExecutor)
-            .thenCompose { accounts -> composeRest(userId, accounts, failFast) }
+        // 코어뱅킹 조회는 blocking 그대로 둔다. 뒤의 두 조회가 이 결과에 의존하므로
+        // 어차피 기다려야 하고, executor 로 넘겨봤자 대기가 자리만 옮겨갈 뿐이다.
+        val accounts = coreBankAdapter.getAccounts(userId)
+        return composeRest(userId, accounts, failFast)
     }
 
     private fun composeRest(

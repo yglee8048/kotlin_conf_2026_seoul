@@ -29,22 +29,6 @@ import java.util.concurrent.ThreadPoolExecutor
 @Configuration
 class ContextAwareAsyncConfig {
 
-    /**
-     * 4단계에서 추가됐다. 3단계까지는 코어뱅킹 조회를 톰캣 스레드에서 그냥 했지만,
-     * 4단계에서 톰캣 스레드를 즉시 반납하려면 **체인의 첫 호출부터** 다른 스레드로 넘겨야 한다.
-     *
-     * 이게 4단계의 숨은 비용이다. 응답을 비동기로 만들려면 중간에 blocking 이 하나라도
-     * 남아 있으면 안 되고, 그 말은 **모든 호출마다 executor 를 준비해야 한다**는 뜻이다.
-     */
-    @Bean(CORE_BANK_TASK_EXECUTOR_V3)
-    fun coreBankTaskExecutorV3(): ThreadPoolTaskExecutor = contextAware(
-        threadNamePrefix = "core-bank-v3-",
-        corePoolSize = 20,
-        maxPoolSize = 20,
-        queueCapacity = 100,
-        rejectedExecutionHandler = ThreadPoolExecutor.AbortPolicy(),
-    )
-
     @Bean(HOME_INFO_TASK_EXECUTOR_V3)
     fun homeInfoTaskExecutorV3(): ThreadPoolTaskExecutor = contextAware(
         threadNamePrefix = "home-info-v3-",
@@ -96,7 +80,6 @@ class ContextAwareAsyncConfig {
     }
 
     companion object {
-        const val CORE_BANK_TASK_EXECUTOR_V3 = "coreBankTaskExecutorV3"
         const val HOME_INFO_TASK_EXECUTOR_V3 = "homeInfoTaskExecutorV3"
         const val OPEN_BANKING_TASK_EXECUTOR_V3 = "openBankingTaskExecutorV3"
         const val LOG_TASK_EXECUTOR_V3 = "logTaskExecutorV3"

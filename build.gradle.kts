@@ -33,6 +33,8 @@ dependencies {
     // 6단계. suspend 컨트롤러. Spring MVC 는 CoroutinesUtils 를 통해 suspend 함수를
     // Mono 로 변환해 async 처리하므로 reactor 브리지가 런타임에 필요하다.
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
+    // 7단계 도입부. MDC 를 코루틴으로 명시적 전파 (MDCContext)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-slf4j")
     // 7단계. ThreadLocalAccessor 기반 컨텍스트 자동 전파
     // (ContextPropagatingTaskDecorator, CoroutinesUtils.PropagationContextElement 가 사용한다)
     implementation("io.micrometer:context-propagation")

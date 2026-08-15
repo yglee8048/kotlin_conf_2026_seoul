@@ -15,12 +15,13 @@ private val log = LoggerFactory.getLogger(HomeItemV4Controller::class.java)
 /**
  * 4단계 엔드포인트. [DeferredResult] 를 반환한다.
  *
- * 핵심은 **이 메서드가 200ms 도 안 걸리고 끝난다**는 것이다.
+ * 핵심은 **이 메서드가 코어뱅킹 조회(~300ms)만 마치면 즉시 끝난다**는 것이다.
  * 반환하는 순간 서블릿 컨테이너는 요청을 async 모드로 전환하고 톰캣 스레드를 풀에 돌려준다.
+ * 병렬 조회를 `join()` 으로 기다리던 시간이 사라진다.
  * 응답은 나중에 `setResult` 를 호출하는 스레드(= 여기서는 open-banking / home-info 풀)가 쓴다.
  *
  * 로그의 `[진입]` / `[반환]` 두 줄 사이 간격을 보면 바로 확인된다.
- * v1~v3 는 이 자리에서 800~1800ms 를 붙잡고 있었다.
+ * v1~v3 는 이 자리에서 830~1840ms 를 붙잡고 있었다.
  *
  * 참고: Spring MVC 는 `CompletableFuture` 를 그대로 반환해도 동일하게 동작한다.
  * 여기서 [DeferredResult] 를 쓴 건 timeout 콜백을 붙여 보여주기 위해서다.

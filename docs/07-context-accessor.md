@@ -1,14 +1,56 @@
-# 7단계. Spring 7 accessor 로 컨텍스트 자동 전파
+# 7단계. 코루틴에서의 컨텍스트 전파 — 명시적으로, 그리고 자동으로
 
-> 3단계에서 손으로 짠 decorator 를 걷어낸다. 코루틴 dispatcher 까지 한 번에 해결된다.
+> 먼저 손으로 하는 방법(`ThreadContextElement`)을 보여준 뒤,
+> 3단계의 decorator 와 함께 그것까지 걷어내는 accessor 를 도입한다.
 
 ## 코드
 
+- `context/CallContextElement.kt` (도입부 — 명시적 전파)
 - `context/CallContextThreadLocalAccessor.kt`
 - `context/MdcThreadLocalAccessor.kt`
 - `config/ContextPropagationConfig.kt`
 - `service/HomeItemServiceV7.kt` → `GET /api/v7/home/items`
 - `controller/DemoToggleController.kt` (시연용 on/off)
+
+## 0. 도입부 — 일단 손으로 전파해보자
+
+5·6단계 로그에서 worker 스레드는 전부 `[trace=none] ctx=없음` 이었다.
+코루틴에서 이걸 해결하는 **기본기**부터 보여준다. 전파할 타입마다 element 를 만들고,
+코루틴 시작점마다 `+` 로 얹으면 된다.
+
+```kotlin
+runBlocking(MDCContext() + CallContextElement()) { ... }   // MDC 용은 kotlinx 가 제공
+applicationCoroutineScope.launch(MDCContext() + CallContextElement()) { ... }
+```
+
+```kotlin
+class CallContextElement(
+    private val callContext: CallContext? = CallContextHolder.get(),        // 캡처
+) : ThreadContextElement<CallContext?> {
+    override fun updateThreadContext(ctx: CoroutineContext): CallContext? =
+        CallContextHolder.get().also { CallContextHolder.set(callContext) }  // 주입 — 재개될 때마다
+    override fun restoreThreadContext(ctx: CoroutineContext, old: CallContext?) =
+        CallContextHolder.set(old)                                           // 원복 — 중단될 때마다
+}
+```
+
+3단계 `CallContextTaskDecorator` 와 **같은 캡처 → 주입 → 원복 모델**이다. 차이는 호출 시점이다.
+decorator 는 작업 제출/실행 1회지만, 코루틴은 suspension 마다 스레드를 갈아탈 수 있어
+element 가 **재개·중단마다** 넣었다 뺐다 해준다.
+
+실측(스크래치 테스트):
+
+```
+--- element 없이 ---
+[DefaultDispatcher-worker-1] ctx=null           mdc=null
+--- element 있이 ---
+[DefaultDispatcher-worker-1] ctx=MOBILE/TR-1    mdc=TR-1
+--- 블록 뒤: 원래 컨텍스트로 원복됨
+```
+
+**그런데 이건 3단계의 부채가 모양만 바꾼 것이다.**
+전파할 타입마다 element 클래스, 코루틴 시작점마다 `+` — 하나라도 빠뜨리면 조용히 안 된다.
+서비스 코드에 전파 코드가 섞이는 것도 그대로다. 그래서 아래로 넘어간다.
 
 ```kotlin
 class CallContextThreadLocalAccessor : ThreadLocalAccessor<CallContext> {
@@ -68,14 +110,19 @@ curl "localhost:8080/api/v7/home/items?value=user-1" -H "X-Trace-Id: TR-V7"
 
 ## 말할 내용
 
-### 1. 3단계와 무엇이 다른가
+### 1. 앞의 두 방식과 무엇이 다른가
 
-| | 3단계 | 7단계 |
-|---|---|---|
-| 전파 로직 | 직접 구현 (캡처/주입/원복) | Spring + micrometer 가 제공 |
-| 적용 범위 | 내가 decorator 를 건 executor 만 | 등록된 accessor 를 아는 모든 경계 |
-| 대상 추가 비용 | decorator 클래스 수정 | accessor 클래스 하나 추가 |
-| 코루틴 dispatcher | ✗ | **O** |
+| | 3단계 decorator | 도입부 element | 7단계 accessor |
+|---|---|---|---|
+| 전파 로직 | 직접 구현 | 직접 구현 | Spring + micrometer 제공 |
+| 적용 범위 | decorator 를 건 executor 만 | element 를 얹은 코루틴만 | 등록된 accessor 를 아는 **모든 경계** |
+| 대상 추가 비용 | decorator 수정 | element 클래스 추가 | accessor 클래스 추가 |
+| 호출부 수정 | 불필요 | **시작점마다 `+`** | 불필요 |
+| 코루틴 dispatcher | ✗ | O | **O** |
+| executor | O | ✗ | **O** |
+
+앞의 둘은 각자 한쪽만 커버했고, 둘 다 **빠뜨리면 조용히 안 되는** 방식이었다.
+accessor 는 등록 한 번으로 양쪽을 덮는다.
 
 3단계 노트 마지막에 "새로운 부채가 생겼다 — 전파할 항목이 늘 때마다 decorator 를
 고쳐야 한다" 고 적어뒀다. 그 부채가 여기서 정리된다.
@@ -139,6 +186,11 @@ ThreadLocalAccessor 등록됨: [micrometer.observation, callContext, mdc]
 
 **(c) `StructuredTaskScope` (12단계)**
 fork 한 가상 스레드에는 ThreadLocal 이 안 따라간다. `ScopedValue` 를 별도로 써야 한다.
+
+> **(a)·(b) 에서는 도입부의 element 가 그대로 답이 된다.**
+> `applicationScope.launch(MDCContext() + CallContextElement()) { ... }`
+> 자동 전파는 기본을 대체하는 게 아니라 **대부분의 경우를 덮어주는 것**이고,
+> 덮이지 않는 자리에서는 손으로 얹는다. 그래서 도입부를 먼저 보여준다.
 
 ### 5. 시연용 토글에 대해
 

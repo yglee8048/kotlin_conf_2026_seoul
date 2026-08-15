@@ -35,7 +35,7 @@ suspend fun getHomeItems(userId: UserId, failFast: Boolean): List<HomeItem> =
 ## 측정 결과
 
 ```
-V4  0.97s   톰캣 스레드 점유 2ms      코드 X
+V4  0.87s   톰캣 스레드 점유 320ms    코드 X
 V5  1.00s   톰캣 스레드 점유 828ms    코드 O
 V6  0.85s   톰캣 스레드 점유 ~1ms     코드 O
 ```
@@ -80,8 +80,10 @@ V6  0.85s   톰캣 스레드 점유 ~1ms     코드 O
 톰캣 스레드를 완전히 반납하려면 **체인에 blocking 이 하나도 남으면 안 되므로**
 이것도 `blockingIo` 로 감싼다.
 
-4단계에서 같은 이유로 `coreBankTaskExecutorV3` 를 **새로 만들어야 했던 것**과 대비된다.
-여기서는 executor 를 하나도 만들지 않는다. dispatcher 하나로 끝난다.
+4단계에서는 이걸 **하지 않았다.** 코어뱅킹까지 비동기로 만들려면 executor 를 하나 더 만들고
+hop 비용을 내야 하는데, 대기가 자리만 옮겨갈 뿐이라 실익이 없었기 때문이다 (점유 320ms 로 타협).
+여기서는 `blockingIo` 한 줄이면 끝이라 **그 비용 자체가 없다.**
+CompletableFuture 에서는 비싸서 포기했던 "마지막 300ms" 를 코루틴은 공짜로 가져간다.
 
 ### 3. 어떻게 동작하나
 
@@ -98,12 +100,12 @@ Spring MVC 는 컨트롤러 메서드가 suspend 면 `CoroutinesUtils.invokeSusp
 
 | | 4단계 | 6단계 |
 |---|---|---|
-| 톰캣 스레드 반납 | O | O |
+| 톰캣 스레드 점유 | 320ms (코어뱅킹 구간) | **~1ms** |
 | 코드가 위에서 아래로 | X | O |
 | 구조적 동시성 | X | O |
 | 컨트롤러 반환 타입 | `DeferredResult<T>` | **`T`** |
 | 예외 | `CompletionException` 으로 감싸짐 | 원래 예외 |
-| 새로 만든 executor | 1개 | 0개 |
+| 하위 시스템마다 executor | 필요 (3개) | **불필요 — dispatcher 하나** |
 
 비동기가 되었는데 **시그니처는 1단계와 같다.**
 
