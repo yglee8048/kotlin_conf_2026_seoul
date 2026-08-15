@@ -43,7 +43,7 @@ class AsyncConfig : AsyncConfigurer {
             maxPoolSize = 10
             queueCapacity = 50
             setThreadNamePrefix("home-info-")
-            setRejectedExecutionHandler(ThreadPoolExecutor.CallerRunsPolicy())
+            setRejectedExecutionHandler(ThreadPoolExecutor.CallerRunsPolicy())  // 큐가 가득 찬 경우 톰캣 스레드 실행
             setWaitForTasksToCompleteOnShutdown(true)
             setAwaitTerminationSeconds(10)
         }
@@ -80,7 +80,7 @@ class AsyncConfig : AsyncConfigurer {
             maxPoolSize = 30
             queueCapacity = 100
             setThreadNamePrefix("open-banking-")
-            setRejectedExecutionHandler(ThreadPoolExecutor.AbortPolicy())
+            setRejectedExecutionHandler(ThreadPoolExecutor.AbortPolicy())   // 큐가 가득 찬 경우 reject
             setWaitForTasksToCompleteOnShutdown(true)
             setAwaitTerminationSeconds(10)
         }
