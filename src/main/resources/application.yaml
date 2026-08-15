@@ -2,5 +2,11 @@ spring:
   application:
     name: demo
 
+  # 실전 팁(비동기 + @Transactional) 예제용 임베디드 H2.
+  # schema.sql 은 embedded DB 에 대해 기본으로 실행된다.
+  sql:
+    init:
+      mode: embedded
+
 # 로그 패턴은 logback-spring.xml 에 있다.
 # 스레드 종류(P/V)를 찍는 커스텀 conversionRule 이 필요해서 yaml 로는 표현할 수 없다.
