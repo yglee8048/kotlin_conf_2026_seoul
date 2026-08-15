@@ -19,6 +19,6 @@ class HomeItemV2Controller(
 
     @GetMapping("/items")
     fun getHomeItems(userId: UserId): List<HomeItem> {
-        return homeItemServiceV2.getHomeItems(userId)
+        return homeItemServiceV2.getHomeItemsV2(userId)
     }
 }

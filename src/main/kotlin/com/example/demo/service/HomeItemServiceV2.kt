@@ -46,8 +46,8 @@ class HomeItemServiceV2(
     @Qualifier(HOME_INFO_TASK_EXECUTOR) private val homeInfoTaskExecutor: Executor,
     @Qualifier(OPEN_BANKING_TASK_EXECUTOR) private val openBankingTaskExecutor: Executor,
 ) {
-    fun getHomeItems(userId: UserId): List<HomeItem> {
-        // 코어뱅킹에서 계좌 목록 조회 — 이후 두 조회의 입력이므로 병렬화할 수 없다.
+    fun getHomeItemsV2(userId: UserId): List<HomeItem> {
+        // 코어뱅킹에서 계좌 목록 조회
         val accounts = coreBankAdapter.getAccounts(userId)
         if (accounts.isEmpty()) {
             return emptyList()
@@ -63,7 +63,7 @@ class HomeItemServiceV2(
         // 외부에서 오픈뱅킹 잔액 조회 (병렬)
         val openBankAccountIds = accounts.filter { it.isOpenBank() }.map { it.accountId }
         val openBankBalanceFuture = if (openBankAccountIds.isEmpty()) {
-            CompletableFuture.completedFuture(emptyList<OpenBankBalance>())
+            CompletableFuture.completedFuture(emptyList())
         } else {
             CompletableFuture.supplyAsync(
                 { openBankingAdapter.getBalances(openBankAccountIds) },
