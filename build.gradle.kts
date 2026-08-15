@@ -30,6 +30,9 @@ dependencies {
 
     // 5단계~. blocking MVC 에서의 코루틴.
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core")
+    // 6단계. suspend 컨트롤러. Spring MVC 는 CoroutinesUtils 를 통해 suspend 함수를
+    // Mono 로 변환해 async 처리하므로 reactor 브리지가 런타임에 필요하다.
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
 
     runtimeOnly("com.h2database:h2")
     testImplementation("org.springframework.boot:spring-boot-starter-actuator-test")
