@@ -68,8 +68,9 @@ class HomeItemServiceV11(
         timeoutMillis: Long = DEFAULT_TIMEOUT_MILLIS,
     ): List<HomeItem> = withTimeout(timeoutMillis) {
         coroutineScope {
-            // 코어뱅킹에서 계좌 목록 조회
-            val accounts = blockingIo(virtualThreadDispatcher) { coreBankAdapter.getAccounts(userId) }
+            // 코어뱅킹 조회는 톰캣 가상 스레드에서 blocking 으로 실행한다.
+            // suspension 지점이 아니므로 withTimeout 은 이 호출 자체를 중단하지는 못한다.
+            val accounts = coreBankAdapter.getAccounts(userId)
             if (accounts.isEmpty()) {
                 return@coroutineScope emptyList()
             }
@@ -83,7 +84,7 @@ class HomeItemServiceV11(
             // 외부에서 오픈뱅킹 잔액 조회 (병렬) — 동시 호출 상한이 걸린 어댑터를 쓴다.
             //
             // 상한에 걸리면 여기서 대기한다. 대기하는 것은 가상 스레드라 값싸고,
-            // 톰캣 스레드는 이미 6단계에서 반납했으므로 영향이 없다.
+            // 톰캣 스레드는 코어뱅킹 조회 이후에 이미 반납됐으므로 영향이 없다.
             // 2단계에서 CallerRunsPolicy 가 톰캣 스레드를 태우던 것과 대비된다.
             val openBankAccountIds = accounts.filter { it.isOpenBank() }.map { it.accountId }
             val openBankBalanceDeferred = async(CoroutineName("open-banking")) {

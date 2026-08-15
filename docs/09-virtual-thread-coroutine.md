@@ -15,7 +15,7 @@ curl "localhost:8080/api/v6/home/items?value=user-1"
 
 ```
 02.005 V[tomcat-handler-4    ] [trace=VT-6] HomeItemV6Controller   : [v6] 진입
-02.010 P[tDispatcher-worker-1] [trace=VT-6] CoreBankAdapter        : [getAccounts] start
+02.010 V[tomcat-handler-4    ] [trace=VT-6] CoreBankAdapter        : [getAccounts] start
 02.319 P[tDispatcher-worker-3] [trace=none] UserLogRepository      : [saveEvent] start
 02.320 P[tDispatcher-worker-2] [trace=VT-6] HomeItemInfoRepository : [getHomeItemInfos] start
 02.320 P[tDispatcher-worker-5] [trace=VT-6] OpenBankingAdapter     : [getBalances] start
@@ -64,7 +64,8 @@ total = 0.86s
 층이 다르다. 경쟁 관계가 아니다.
 
 실제로 v6 를 `vt` 프로파일에서 돌리면 **양쪽 이득이 그대로 합쳐진다.**
-톰캣 스레드는 가상 스레드라 값싸고, 반납까지 되고, 구조적 동시성도 있다.
+코어뱅킹은 값싼 톰캣 가상 스레드에서 실행하고,
+그 뒤 병렬 조회 구간에서는 톰캣 스레드를 반납하며 구조적 동시성도 유지한다.
 
 ### 3. 그런데 `Dispatchers.IO` 가 아직 `P` 다
 
@@ -85,7 +86,7 @@ blocking mock 을 `runInterruptible(Dispatchers.IO)` 로 감싸고 있으므로,
 
 ### 4. 컨텍스트 전파는 프로파일과 무관하다 (확인)
 
-로그의 `[trace=VT-6] ctx=UNKNOWN/VT-6` 이 그대로 살아있다.
+병렬 조회 worker 로그의 `[trace=VT-6] ctx=UNKNOWN/VT-6` 이 그대로 살아있다.
 7단계에서 `PropagationContextElement` 가 **dispatcher 가 아니라 재개 시점**에
 걸린다고 했던 것이 여기서 확인된다.
 

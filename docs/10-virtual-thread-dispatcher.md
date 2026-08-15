@@ -15,7 +15,8 @@ fun virtualThreadDispatcher(): ExecutorCoroutineDispatcher {
 }
 ```
 
-서비스는 7단계에서 **dispatcher 인자만 바뀐다.**
+서비스의 병렬 조회는 7단계에서 **dispatcher 인자만 바뀐다.**
+코어뱅킹 호출은 계속 톰캣 스레드에서 blocking 으로 실행한다.
 
 ```kotlin
 blockingIo { ... }                          // 7단계: Dispatchers.IO
@@ -25,13 +26,13 @@ blockingIo(virtualThreadDispatcher) { ... } // 10단계
 ## 측정 결과
 
 ```
-19.932 V[vt-dispatch-0 ] [trace=TR-11] CoreBankAdapter        : [getAccounts] start   ctx=UNKNOWN/TR-11
+19.932 V[tomcat-handler-4] [trace=TR-11] CoreBankAdapter        : [getAccounts] start   ctx=UNKNOWN/TR-11
 20.237 V[vt-dispatch-1 ] [trace=TR-11] HomeItemInfoRepository : [getHomeItemInfos] start
 20.239 V[vt-dispatch-2 ] [trace=TR-11] OpenBankingAdapter     : [getBalances] start
 total = 0.83s
 ```
 
-`P[DefaultDispatcher-worker-N]` 이 `V[vt-dispatch-N]` 이 됐다.
+코어뱅킹 이후 병렬 조회의 `P[DefaultDispatcher-worker-N]` 이 `V[vt-dispatch-N]` 이 됐다.
 **응답 시간은 그대로다.** 동시성이 낮을 때는 아무 이득이 없다는 걸 먼저 인정한다.
 
 ## 말할 내용
@@ -75,7 +76,7 @@ core/max/queue 를 정할 필요가 없다.
 
 ### 3. 컨텍스트 전파는 따라온다 (확인)
 
-dispatcher 를 통째로 갈았는데 `ctx=UNKNOWN/TR-11` 이 그대로다.
+dispatcher 를 통째로 갈았는데 병렬 조회의 `ctx=UNKNOWN/TR-11` 이 그대로다.
 
 7단계에서 `PropagationContextElement` 가 **dispatcher 가 아니라 코루틴 재개 시점**에
 걸린다고 했던 이유다. 3단계 방식이었다면 이 새 executor 에 decorator 를 또 달아야 했다.

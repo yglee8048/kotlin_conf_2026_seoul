@@ -14,7 +14,7 @@
 
 ## 0. 도입부 — 일단 손으로 전파해보자
 
-5·6단계 로그에서 worker 스레드는 전부 `[trace=none] ctx=없음` 이었다.
+5·6단계 로그에서 코어뱅킹 이후 worker 스레드는 전부 `[trace=none] ctx=없음` 이었다.
 코루틴에서 이걸 해결하는 **기본기**부터 보여준다. 전파할 타입마다 element 를 만들고,
 코루틴 시작점마다 `+` 로 얹으면 된다.
 
@@ -93,13 +93,13 @@ curl "localhost:8080/api/v7/home/items?value=user-1" -H "X-Trace-Id: TR-V7"
 
 ```
 ### accessor OFF  (= 6단계까지의 상태)
-50.128 P[tDispatcher-worker-1] [trace=none] CoreBankAdapter        : [getAccounts] start   ctx=없음
-50.434 P[user-log-v7-2       ] [trace=none] UserLogRepository      : [saveEvent] start     ctx=없음
-50.434 P[tDispatcher-worker-1] [trace=none] OpenBankingAdapter     : [getBalances] start   ctx=없음
-50.435 P[tDispatcher-worker-3] [trace=none] HomeItemInfoRepository : [getHomeItemInfos] start ctx=없음
+50.128 P[http-nio-8080-exec-2] [trace=TR-OFF] CoreBankAdapter        : [getAccounts] start   ctx=MOBILE/TR-OFF
+50.434 P[user-log-v7-2       ] [trace=none]   UserLogRepository      : [saveEvent] start     ctx=없음
+50.434 P[tDispatcher-worker-1] [trace=none]   OpenBankingAdapter     : [getBalances] start   ctx=없음
+50.435 P[tDispatcher-worker-3] [trace=none]   HomeItemInfoRepository : [getHomeItemInfos] start ctx=없음
 
 ### accessor ON
-47.939 P[tDispatcher-worker-1] [trace=TR-V7] CoreBankAdapter        : [getAccounts] start   ctx=MOBILE/TR-V7
+47.939 P[http-nio-8080-exec-4] [trace=TR-V7] CoreBankAdapter        : [getAccounts] start   ctx=MOBILE/TR-V7
 48.256 P[user-log-v7-1       ] [trace=TR-V7] UserLogRepository      : [saveEvent] start     ctx=MOBILE/TR-V7
 48.259 P[tDispatcher-worker-3] [trace=TR-V7] HomeItemInfoRepository : [getHomeItemInfos] start ctx=MOBILE/TR-V7
 48.259 P[tDispatcher-worker-1] [trace=TR-V7] OpenBankingAdapter     : [getBalances] start   ctx=MOBILE/TR-V7

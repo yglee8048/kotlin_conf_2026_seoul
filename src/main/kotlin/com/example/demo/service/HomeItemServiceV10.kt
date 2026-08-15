@@ -26,7 +26,8 @@ import org.springframework.stereotype.Service
  * blockingIo(virtualThreadDispatcher) { ... } // 10단계: 가상 스레드
  * ```
  *
- * 로그에서 `P[DefaultDispatcher-worker-1]` 이 `V[vt-dispatch-3]` 으로 바뀐다.
+ * 병렬 조회 로그에서 `P[DefaultDispatcher-worker-1]` 이 `V[vt-dispatch-3]` 으로 바뀐다.
+ * 코어뱅킹 호출은 이전 단계와 같이 톰캣 스레드에서 실행한다.
  * 응답 시간은 변하지 않는다. **동시성이 낮을 때는 아무 이득이 없다는 걸 먼저 인정하고 시작한다.**
  * 차이는 동시 요청이 수백 개로 갈 때 나온다.
  *
@@ -52,8 +53,8 @@ class HomeItemServiceV10(
 ) {
 
     suspend fun getHomeItemsV10(userId: UserId, failFast: Boolean = false): List<HomeItem> = coroutineScope {
-        // 코어뱅킹에서 계좌 목록 조회
-        val accounts = blockingIo(virtualThreadDispatcher) { coreBankAdapter.getAccounts(userId) }
+        // 코어뱅킹 조회는 톰캣 가상 스레드에서 blocking 으로 실행한다.
+        val accounts = coreBankAdapter.getAccounts(userId)
         if (accounts.isEmpty()) {
             return@coroutineScope emptyList()
         }

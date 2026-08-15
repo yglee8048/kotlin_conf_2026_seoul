@@ -20,14 +20,12 @@ import org.springframework.stereotype.Service
 /**
  * 6단계. **[HomeItemServiceV5] 에서 `runBlocking` 을 걷어냈다.**
  *
- * diff 는 세 줄이다.
+ * 코어뱅킹 호출은 5단계와 같이 톰캣 스레드에서 실행하고,
+ * 그 뒤의 병렬 조회 구간에서만 코루틴으로 전환한다.
  *
  * ```
  * - fun getHomeItemsV5(...): List<HomeItem> {
  * + suspend fun getHomeItemsV6(...): List<HomeItem> = coroutineScope {
- *
- * - val accounts = coreBankAdapter.getAccounts(userId)
- * + val accounts = blockingIo { coreBankAdapter.getAccounts(userId) }
  *
  * - val (infos, balances) = runBlocking { ... }
  * + (블록이 그대로 펼쳐진다)
@@ -39,23 +37,19 @@ import org.springframework.stereotype.Service
  * 그 경계가 서비스 안쪽에 있는 한, 호출 스레드(톰캣)는 계속 막혀 있다.
  *
  * 경계를 위로 밀어 올리면 — 즉 컨트롤러까지 `suspend` 로 만들면 — 경계 자체가 사라지고
- * 톰캣 스레드가 첫 suspension 에서 반납된다.
+ * 코어뱅킹 조회가 끝난 뒤 첫 suspension 에서 톰캣 스레드가 반납된다.
  *
  * > **코루틴 도입은 "전부 바꾸기" 가 아니라 "경계를 어디에 둘 것인가" 의 문제다.**
  * > 5단계는 경계가 서비스 안, 6단계는 컨트롤러 밖. 코드는 거의 같다.
  *
  * 그래서 실무에서는 5단계 모양으로 먼저 들여놓고, 준비되는 곳부터 경계를 위로 올리면 된다.
  *
- * ## `getAccounts` 도 코루틴 안으로 들어왔다
+ * ## `getAccounts` 는 blocking 으로 남겨둔다
  *
- * 5단계에서는 코루틴 밖의 평범한 blocking 호출이었다.
- * 톰캣 스레드를 완전히 반납하려면 **체인에 blocking 이 하나도 남으면 안 되므로**
- * 이것도 `blockingIo` 로 감싼다.
- *
- * 4단계에서는 이걸 하지 않았다. 코어뱅킹까지 비동기로 만들려면 executor 를 하나 더 만들고
- * hop 비용을 내야 하는데, 대기가 자리만 옮겨갈 뿐이라 실익이 없었기 때문이다.
- * 여기서는 `blockingIo` 한 줄이면 끝이라 그 비용 자체가 없다.
- * CompletableFuture 에서는 비싸서 포기했던 "마지막 300ms" 를 코루틴은 공짜로 가져간다.
+ * 4단계와 동일한 비교 조건을 유지하기 위해 코어뱅킹 호출은
+ * `blockingIo` 로 감싸지 않고 톰캣 스레드 위에서 그대로 실행한다.
+ * 따라서 6단계도 톰캣 스레드를 약 320ms 점유하고,
+ * 이후 두 조회를 기다리는 구간에서 반납한다.
  *
  * ## 남은 문제
  *
@@ -72,8 +66,8 @@ class HomeItemServiceV6(
 ) {
 
     suspend fun getHomeItemsV6(userId: UserId, failFast: Boolean = false): List<HomeItem> = coroutineScope {
-        // 코어뱅킹에서 계좌 목록 조회
-        val accounts = blockingIo { coreBankAdapter.getAccounts(userId) }
+        // 코어뱅킹 조회는 4단계와 같이 톰캣 스레드에서 blocking 으로 실행한다.
+        val accounts = coreBankAdapter.getAccounts(userId)
         if (accounts.isEmpty()) {
             return@coroutineScope emptyList()
         }

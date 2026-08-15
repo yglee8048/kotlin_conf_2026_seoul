@@ -55,8 +55,8 @@ class HomeItemServiceV7(
 ) {
 
     suspend fun getHomeItemsV7(userId: UserId, failFast: Boolean = false): List<HomeItem> = coroutineScope {
-        // 코어뱅킹에서 계좌 목록 조회
-        val accounts = blockingIo { coreBankAdapter.getAccounts(userId) }
+        // 코어뱅킹 조회는 6단계와 같이 톰캣 스레드에서 blocking 으로 실행한다.
+        val accounts = coreBankAdapter.getAccounts(userId)
         if (accounts.isEmpty()) {
             return@coroutineScope emptyList()
         }

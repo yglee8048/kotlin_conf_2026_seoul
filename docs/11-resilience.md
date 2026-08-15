@@ -29,8 +29,8 @@ curl ".../api/v11/home/items?value=user-1&timeoutMillis=400"
 ```
 
 ```
-22.004 V[vt-dispatch-3] [trace=TO-11] CoreBankAdapter        : [getAccounts] start
-22.305 V[vt-dispatch-3] [trace=TO-11] CoreBankAdapter        : [getAccounts] end
+22.004 V[tomcat-handler-3] [trace=TO-11] CoreBankAdapter        : [getAccounts] start
+22.305 V[tomcat-handler-3] [trace=TO-11] CoreBankAdapter        : [getAccounts] end
 22.305 P[user-log-v7-4] [trace=TO-11] UserLogRepository      : [saveEvent] start   ← 영향 없음
 22.305 V[vt-dispatch-4] [trace=TO-11] HomeItemInfoRepository : [getHomeItemInfos] start
 22.305 V[vt-dispatch-5] [trace=TO-11] OpenBankingAdapter     : [getBalances] start
@@ -41,6 +41,8 @@ http=500 total=0.41s
 ```
 
 **두 자식 모두 인터럽트되고 `end` 가 하나도 없다.**
+코어뱅킹 호출은 suspension 지점이 아니므로 톰캣 스레드에서 300ms 동안 끝까지 실행된다.
+400ms 제한의 남은 약 100ms 구간에서 병렬 자식들이 취소된다.
 
 ## 측정 결과 2 — 동시 호출 상한
 
@@ -87,7 +89,7 @@ seq 8 | xargs -P8 -I{} curl -s -o /dev/null ".../api/v11/home/items?value=user-{
 > 11단계: "기다리거나(BLOCK) 거절하거나(REJECT)"
 
 **그리고 기다리는 쪽이 톰캣 스레드를 태우지 않는다.**
-가상 스레드 위에서 기다리는 건 값싸고, 톰캣 스레드는 6단계에서 이미 반납했다.
+가상 스레드 위에서 기다리는 건 값싸고, 톰캣 스레드는 코어뱅킹 조회 이후에 반납했다.
 
 2단계에서 CallerRuns 가 톰캣 스레드를 붙잡던 것과 정확히 대비된다.
 **세 단계의 성과가 여기서 합쳐진다.**
@@ -132,7 +134,7 @@ withTimeout 만료
 | 4 | 묶음 전체 timeout | **11** (`withTimeout`) |
 | 5 | MDC / 컨텍스트 전파 | 3 (수동) → 7 (선언) |
 | 6 | 하위 시스템마다 executor | 6 (dispatcher 하나) → 10 (가상 스레드) |
-| + | 톰캣 스레드 점유 | 4 (`DeferredResult`) → 6 (`suspend`) |
+| + | 톰캣 스레드 점유 | 4·6 (코어뱅킹 320ms 이후 반납) |
 | + | 하위 시스템 보호 | **11** (`@ConcurrencyLimit`) |
 
 ### 5. 조합이 핵심이다

@@ -268,15 +268,16 @@
   <h2 class="title">목차</h2>
   <div class="body" style="justify-content:center;">
     <ul class="big" style="font-size:26px; gap:24px;">
-      <li>Kotlin Bank 홈 화면 구현해보기
+      <li>Kotlin Bank 홈 화면 개선하기
         <ul style="font-size:21px; gap:12px; margin-top:16px;">
-          <li>Spring MVC</li>
-          <li>with Coroutine</li>
-          <li>with Virtual Thread</li>
-          <li>non-blocking + Coroutine</li>
+          <li>Spring MVC — 비동기·병렬 처리</li>
+          <li>Coroutine — 구조적 동시성</li>
+          <li>Virtual Thread — 값싼 실행</li>
+          <li>Virtual Thread + Coroutine — 함께 쓰기</li>
         </ul>
       </li>
-      <li style="margin-top:8px;">Conclusion</li>
+      <li style="margin-top:8px;">번외: non-blocking 환경에서도 Coroutine 이 유효한 이유</li>
+      <li style="margin-top:8px;">Conclusion — 그래서 언제 무엇을 쓸까?</li>
     </ul>
   </div>
 </section>
@@ -365,7 +366,7 @@
   </div>
 </section>
 
-<!-- ============ 7a. 1단계 코드 (1/2) ============ -->
+<!-- ============ 7a. STEP 1 코드 (1/2) ============ -->
 <section class="slide">
   <span class="kicker">Step 1 · Spring MVC</span>
   <h2 class="title">이제 개발해보자!</h2>
@@ -388,7 +389,7 @@
   </div>
 </section>
 
-<!-- ============ 7b. 1단계 코드 (2/2) ============ -->
+<!-- ============ 7b. STEP 1 코드 (2/2) ============ -->
 <section class="slide">
   <span class="kicker">Step 1 · Spring MVC</span>
   <h2 class="title">이제 개발해보자!</h2>
@@ -482,7 +483,7 @@
   </div>
 </section>
 
-<!-- ============ 10a. 2단계 코드 (1/2) ============ -->
+<!-- ============ 10a. STEP 2 코드 (1/2) ============ -->
 <section class="slide">
   <span class="kicker">Step 2 · CompletableFuture + @Async</span>
   <h2 class="title">동시성을 적용해보자</h2>
@@ -504,7 +505,7 @@
   </div>
 </section>
 
-<!-- ============ 10b. 2단계 코드 (2/2) ============ -->
+<!-- ============ 10b. STEP 2 코드 (2/2) ============ -->
 <section class="slide">
   <span class="kicker">Step 2 · CompletableFuture + @Async</span>
   <h2 class="title">동시성을 적용해보자</h2>
@@ -612,12 +613,12 @@ logTaskExecutor         : core <span class="n">5</span>  / queue <span class="n"
   </div>
 </section>
 
-<!-- ============ 13a. 3단계 코드 — 필터 ============ -->
+<!-- ============ 13a. STEP 3 코드 — 필터 ============ -->
 <section class="slide">
   <span class="kicker">Step 3 · ThreadLocal 전파</span>
   <h2 class="title">thread local 전파하기 <span class="sub" style="font-size:22px;">① 요청 진입 시 컨텍스트 세팅</span></h2>
   <div class="body" style="justify-content:center;">
-    <pre class="code"><span class="a">@Component</span>
+    <pre class="code xs"><span class="a">@Component</span>
 <span class="a">@Order</span>(Ordered.HIGHEST_PRECEDENCE)
 <span class="k">class</span> CallContextFilter : OncePerRequestFilter() {
 
@@ -640,7 +641,7 @@ logTaskExecutor         : core <span class="n">5</span>  / queue <span class="n"
   </div>
 </section>
 
-<!-- ============ 13b. 3단계 코드 — TaskDecorator ============ -->
+<!-- ============ 13b. STEP 3 코드 — TaskDecorator ============ -->
 <section class="slide">
   <span class="kicker">Step 3 · ThreadLocal 전파</span>
   <h2 class="title">thread local 전파하기 <span class="sub" style="font-size:22px;">② 캡처 → 주입 → 원복</span></h2>
@@ -671,7 +672,7 @@ logTaskExecutor         : core <span class="n">5</span>  / queue <span class="n"
   </div>
 </section>
 
-<!-- ============ 13c. 3단계 코드 — 적용 + 결과 ============ -->
+<!-- ============ 13c. STEP 3 코드 — 적용 + 결과 ============ -->
 <section class="slide">
   <span class="kicker">Step 3 · ThreadLocal 전파</span>
   <h2 class="title">thread local 전파하기 <span class="sub" style="font-size:22px;">③ executor 에 한 줄</span></h2>
@@ -722,12 +723,12 @@ logTaskExecutor         : core <span class="n">5</span>  / queue <span class="n"
       <div class="card" style="flex:1;"><h4>톰캣 스레드는 여전히 830ms 점유</h4>
         <p>join() 으로 결과를 기다리는 동안 붙잡혀 있다.<br>처리량의 천장은 그대로다.</p></div>
       <div class="card" style="flex:1;"><h4>그럼 저 대기부터 없애면?</h4>
-        <p>이미 딴 스레드가 하는 일을 join() 으로<br><b style="color:var(--text);">앉아서 기다리는 것</b>은 순수 낭비다 → 4단계</p></div>
+        <p>이미 딴 스레드가 하는 일을 join() 으로<br><b style="color:var(--text);">앉아서 기다리는 것</b>은 순수 낭비다 → STEP 4</p></div>
     </div>
   </div>
 </section>
 
-<!-- ============ 15a. 4단계 코드 — 서비스 ============ -->
+<!-- ============ 15a. STEP 4 코드 — 서비스 ============ -->
 <section class="slide">
   <span class="kicker">Step 4 · DeferredResult</span>
   <h2 class="title">쓰레드 조금 더 효율적으로 사용하기</h2>
@@ -752,7 +753,7 @@ logTaskExecutor         : core <span class="n">5</span>  / queue <span class="n"
   </div>
 </section>
 
-<!-- ============ 15b. 4단계 코드 — 컨트롤러 + 결과 ============ -->
+<!-- ============ 15b. STEP 4 코드 — 컨트롤러 + 결과 ============ -->
 <section class="slide">
   <span class="kicker">Step 4 · DeferredResult</span>
   <h2 class="title">쓰레드 조금 더 효율적으로 사용하기</h2>
@@ -800,17 +801,17 @@ logTaskExecutor         : core <span class="n">5</span>  / queue <span class="n"
       </div>
     </div>
     <div class="callout" style="margin-top:30px;">
-      2단계에서 코드가 답하지 못했던 질문들 — <b>“이 두 작업은 한 묶음인가? 하나가 실패하면? 묶음 전체의 timeout 은?”</b><br>
+      STEP 2에서 코드가 답하지 못했던 질문들 — <b>“이 두 작업은 한 묶음인가? 하나가 실패하면? 묶음 전체의 timeout 은?”</b><br>
       <span style="color:var(--muted); font-size:17px;">코루틴은 이 질문들에 라이브러리가 아니라 <b style="color:var(--text);">문법</b>으로 답한다</span>
     </div>
   </div>
 </section>
 
-<!-- ============ 17a-0. 5단계 — 첫 시도 (dispatcher 없이) ============ -->
+<!-- ============ 17a-0. STEP 5 — 첫 시도 (dispatcher 없이) ============ -->
 <section class="slide">
   <span class="kicker">Step 5 · Coroutine</span>
   <h2 class="title">코루틴을 도입해보자</h2>
-  <p class="sub">launch 로 던지고 async 로 병렬 — 바뀐 파일은 서비스 하나, 시그니처는 1단계 그대로</p>
+  <p class="sub">launch 로 던지고 async 로 병렬 — 바뀐 파일은 서비스 하나, 시그니처는 STEP 1 그대로</p>
   <div class="body" style="justify-content:center; gap:12px;">
     <pre class="code xs"><span class="k">val</span> accounts = coreBankAdapter.getAccounts(userId)      <span class="c">// 여긴 그대로 (의존 관계)</span>
 
@@ -820,7 +821,7 @@ logTaskExecutor         : core <span class="n">5</span>  / queue <span class="n"
     <span class="k">val</span> openBankBalanceDeferred = <span class="f">async</span> { openBankingAdapter.getBalances(openBankAccountIds) }
     homeCardInfoDeferred.await() <span class="k">to</span> openBankBalanceDeferred.await()
 }
-<span class="k">return</span> accounts.map { <span class="c">/* 조립 — 1단계와 같은 자리 */</span> }</pre>
+<span class="k">return</span> accounts.map { <span class="c">/* 조립 — STEP 1과 같은 자리 */</span> }</pre>
     <pre class="log sm"><span class="c" style="font-style:normal; color:#5C5372;">### 1.73s — v1 순차와 똑같다?! 전부 톰캣 스레드 하나에서 차례로 실행됐다</span>
 <span class="lp">P[http-nio-8080-exec-5]</span> [getAccounts]      <span class="dim">start 01.360 → end 01.665</span>
 <span class="lp">P[http-nio-8080-exec-5]</span> [saveEvent]        <span class="dim">start 01.666 → end 02.371</span>   <span class="er">← launch 도</span>
@@ -831,7 +832,7 @@ logTaskExecutor         : core <span class="n">5</span>  / queue <span class="n"
   </div>
 </section>
 
-<!-- ============ 17a. 5단계 — Dispatchers.IO ============ -->
+<!-- ============ 17a. STEP 5 — Dispatchers.IO ============ -->
 <section class="slide">
   <span class="kicker">Step 5 · Coroutine</span>
   <h2 class="title">실행할 스레드를 주자 — <span class="grad-text">Dispatchers.IO</span></h2>
@@ -850,7 +851,7 @@ logTaskExecutor         : core <span class="n">5</span>  / queue <span class="n"
         homeCardInfoDeferred.await() <span class="k">to</span> openBankBalanceDeferred.await()
     }
 
-    <span class="k">return</span> accounts.map { <span class="c">/* 조립 — 1단계와 같은 자리로 돌아왔다 */</span> }
+    <span class="k">return</span> accounts.map { <span class="c">/* 조립 — STEP 1과 같은 자리로 돌아왔다 */</span> }
 }</pre>
     <p class="note" style="margin-top:14px;">자식들이 <b style="color:var(--muted);">DefaultDispatcher-worker-N</b> 으로 흩어져 세 작업이 동시에 돈다. 컨트롤러도, 반환 타입도, 호출자도 그대로 —<br>이제 병렬이다. 그런데 응답 시간을 재보면...</p>
   </div>
@@ -1003,7 +1004,7 @@ println(<span class="s">"after"</span>)</pre>
       <tr><td>JDK HttpClient (RestClient 기본 폴백)</td><td class="good">반응한다</td>
         <td>인터럽트 <b style="color:var(--text);">12ms 만에</b> InterruptedException — 내부가 async 라서</td></tr>
       <tr><td>소켓 read — <b style="color:var(--text);">가상 스레드</b></td><td class="good">반응한다</td>
-        <td>인터럽트 <b style="color:var(--text);">5ms 만에</b> SocketException (JEP 444) — 8단계에서 다시 만난다</td></tr>
+        <td>인터럽트 <b style="color:var(--text);">5ms 만에</b> SocketException (JEP 444) — STEP 8에서 다시 만난다</td></tr>
     </table>
     <div class="callout" style="font-size:17px;">
       취소 지연이 정말 SLA 라면 답은 non-blocking 클라이언트(<b>WebClient</b>)다. blocking MVC 의 취소는 <b>best effort</b> —<br>
@@ -1012,16 +1013,16 @@ println(<span class="s">"after"</span>)</pre>
   </div>
 </section>
 
-<!-- ============ 18. 뭐가 좋아진 걸까 (3단계와 비교) ============ -->
+<!-- ============ 18. 뭐가 좋아진 걸까 (STEP 3과 비교) ============ -->
 <section class="slide">
   <span class="kicker">Step 5 · Coroutine</span>
-  <h2 class="title">뭐가 좋아진 걸까 — 3단계와 비교</h2>
+  <h2 class="title">뭐가 좋아진 걸까 — STEP 3과 비교</h2>
   <p class="sub">공정한 비교다 — 둘 다 병렬이고, 둘 다 톰캣 스레드를 830ms 붙잡는다. 남는 차이는 <b style="color:var(--text);">코드 구조</b>뿐</p>
   <div class="body">
     <div class="cols">
       <div class="col" style="flex:1.1;">
         <table class="tbl sm">
-          <tr><th></th><th>3단계 (Future)</th><th>5단계 (Coroutine)</th></tr>
+          <tr><th></th><th>STEP 3 (Future)</th><th>STEP 5 (Coroutine)</th></tr>
           <tr><td>응답 · 톰캣 점유</td><td style="color:var(--muted);">0.83s · 830ms</td><td style="color:var(--muted);">0.85s · 828ms — 같다</td></tr>
           <tr><td>병렬 구간 코드</td><td class="bad">supplyAsync + executor + join</td><td class="good">async + await</td></tr>
           <tr><td>하위 시스템마다 executor</td><td class="bad">필요 — 크기·거부 정책 고민</td><td class="good">불필요 — dispatcher 하나</td></tr>
@@ -1032,15 +1033,15 @@ println(<span class="s">"after"</span>)</pre>
       </div>
       <div class="col" style="flex:1;">
         <pre class="log sm"><span class="c" style="font-style:normal; color:#5C5372;">### ?failFast=true — 오픈뱅킹을 50ms 만에 실패시키면</span>
-<span class="c" style="font-style:normal; color:#5C5372;">CompletableFuture (2~4단계)</span>
+<span class="c" style="font-style:normal; color:#5C5372;">CompletableFuture (STEP 2~4)</span>
 <span class="lp">P[open-banking-v3-1]</span> [getBalances] <span class="er">의도된 실패</span>
 <span class="lp">P[home-info-v3-1   ]</span> [getHomeItemInfos] <span class="wa">end ← 끝까지 돈다</span>
-<span class="c" style="font-style:normal; color:#5C5372;">Coroutine (5단계)</span>
+<span class="c" style="font-style:normal; color:#5C5372;">Coroutine (STEP 5)</span>
 <span class="lp">P[worker-3]</span> [getBalances] <span class="er">의도된 실패</span>
 <span class="lp">P[worker-1]</span> [getHomeItemInfos] <span class="ok">취소됨(인터럽트) ← 1ms 만에</span></pre>
         <div class="card"><h4>이미 실패한 요청을 위해 일하지 않는다</h4>
           <p>형제가 취소되고 DB 커넥션도 일찍 놓는다.<br>응답도 0.52s → 0.37s.</p></div>
-        <div class="card"><h4>스레드 효율은 아직 4단계에 진다</h4>
+        <div class="card"><h4>스레드 효율은 아직 STEP 4에 진다</h4>
           <p>점유 828ms vs 320ms — runBlocking 이 막고 있다.</p></div>
       </div>
     </div>
@@ -1088,49 +1089,48 @@ println(<span class="s">"after"</span>)</pre>
   </div>
 </section>
 
-<!-- ============ 21. 6단계 suspend ============ -->
+<!-- ============ 21. STEP 6 suspend ============ -->
 <section class="slide">
   <span class="kicker">Step 6 · suspend controller</span>
   <h2 class="title">톰캣 쓰레드를 좀 더 효율적으로 쓰려면..?</h2>
-  <p class="sub">runBlocking 을 걷어내고 경계를 컨트롤러 밖으로 — diff 는 세 줄이다</p>
+  <p class="sub">runBlocking 을 걷어내고 경계를 컨트롤러 밖으로 — 코어뱅킹 blocking 은 그대로</p>
   <div class="body" style="justify-content:center; gap:16px;">
     <pre class="code xs"><span class="er">- fun</span> getHomeItemsV5(userId: UserId): List&lt;HomeItem&gt; {
 <span class="ok">+ suspend fun</span> getHomeItemsV6(userId: UserId): List&lt;HomeItem&gt; = <span class="f">coroutineScope</span> {
-<span class="er">-     val accounts = coreBankAdapter.getAccounts(userId)</span>
-<span class="ok">+     val accounts = blockingIo { coreBankAdapter.getAccounts(userId) }</span>
+    <span class="k">val</span> accounts = coreBankAdapter.getAccounts(userId)  <span class="c">// STEP 4처럼 톰캣 스레드에서 blocking</span>
 <span class="er">-     val (infos, balances) = runBlocking { ... }</span>
 <span class="ok">+     val homeCardInfoDeferred = async { ... }      // 블록이 그대로 펼쳐진다</span></pre>
     <pre class="code sm"><span class="a">@GetMapping</span>(<span class="s">"/items"</span>)
 <span class="k">suspend fun</span> <span class="f">getHomeItems</span>(userId: UserId): List&lt;HomeItem&gt; =   <span class="c">// 컨트롤러는 suspend 한 단어</span>
     homeItemServiceV6.getHomeItemsV6(userId)</pre>
     <pre class="log sm"><span class="lp">P[http-nio-8080-exec-2]</span> [v6] 진입                        <span class="dim">05.887</span>
-<span class="lp">P[tDispatcher-worker-1]</span> [getAccounts] start              <span class="dim">05.888  ← 이미 다른 스레드</span>
-<span class="lp">P[tDispatcher-worker-1]</span> <span class="mark">[v6] 반환 (진입과 다른 스레드다)</span>  <span class="ok">06.701  톰캣 점유 ~1ms</span></pre>
-    <p class="note">첫 suspension 에서 톰캣 스레드 반납 — 4단계에서 executor 가 아까워 포기했던 코어뱅킹 300ms 까지 <b style="color:var(--muted);">blockingIo 한 줄로 공짜로</b> 가져간다. 내부적으로는 4단계와 같은 서블릿 async 인데 코드에 드러나지 않고, 시그니처는 1단계와 같다.</p>
+<span class="lp">P[http-nio-8080-exec-2]</span> [getAccounts] start              <span class="dim">05.888  ← 톰캣 스레드</span>
+<span class="lp">P[tDispatcher-worker-1]</span> <span class="mark">[v6] 반환 (진입과 다른 스레드다)</span>  <span class="ok">06.701  톰캣 점유 320ms</span></pre>
+    <p class="note">코어뱅킹 300ms 는 STEP 4와 같이 톰캣 스레드에서 실행 — 그 뒤 첫 suspension 에서 톰캣 스레드를 반납한다. 점유 조건을 같게 맞춰도 코드는 위에서 아래로 읽히고, 시그니처는 STEP 1과 같다.</p>
   </div>
 </section>
 
-<!-- ============ 21b. 이제야 공정한 비교 — 4단계 vs 6단계 ============ -->
+<!-- ============ 21b. 이제야 공정한 비교 — STEP 4 vs STEP 6 ============ -->
 <section class="slide">
   <span class="kicker">Step 6 · suspend controller</span>
-  <h2 class="title">이제 4단계와 비교해보자</h2>
+  <h2 class="title">이제 STEP 4와 비교해보자</h2>
   <p class="sub">둘 다 톰캣 스레드를 반납한다 — 같은 목표를 어떻게 다르게 이뤘나</p>
   <div class="body" style="justify-content:center; gap:20px;">
     <table class="tbl">
-      <tr><th></th><th>4단계 — DeferredResult</th><th>6단계 — suspend</th></tr>
-      <tr><td>톰캣 스레드 점유</td><td class="warn2">320ms (코어뱅킹은 blocking 타협)</td><td class="good">~1ms — 코어뱅킹까지 blockingIo 한 줄</td></tr>
-      <tr><td>코드가 위에서 아래로</td><td class="bad">X — thenCompose / thenCombine 콜백</td><td class="good">O — 1단계와 같은 모양</td></tr>
+      <tr><th></th><th>STEP 4 — DeferredResult</th><th>STEP 6 — suspend</th></tr>
+      <tr><td>톰캣 스레드 점유</td><td class="warn2">320ms (코어뱅킹 blocking)</td><td class="good">320ms (코어뱅킹 blocking)</td></tr>
+      <tr><td>코드가 위에서 아래로</td><td class="bad">X — thenCompose / thenCombine 콜백</td><td class="good">O — STEP 1과 같은 모양</td></tr>
       <tr><td>컨트롤러 반환 타입</td><td class="bad" style="font-family:var(--mono); font-size:14px;">DeferredResult&lt;List&lt;HomeItem&gt;&gt;</td><td class="good" style="font-family:var(--mono); font-size:14px;">List&lt;HomeItem&gt;</td></tr>
       <tr><td>구조적 동시성</td><td class="bad">없음 — 형제 취소·묶음 수명 표현 불가</td><td class="good">있음</td></tr>
       <tr><td>예외</td><td class="bad">CompletionException 으로 감싸짐</td><td class="good">원래 예외 그대로</td></tr>
       <tr><td>하위 시스템마다 executor</td><td class="bad">필요 (3개)</td><td class="good">0개</td></tr>
     </table>
-    <div class="callout">비동기가 되었는데 <b>시그니처는 1단계와 같다.</b> 4단계가 대가로 치렀던 것들을 하나도 치르지 않았다 —<br>
+    <div class="callout">비동기가 되었는데 <b>시그니처는 STEP 1과 같다.</b> STEP 4가 대가로 치렀던 것들을 하나도 치르지 않았다 —<br>
     <span style="color:var(--muted); font-size:17px;"><b style="color:var(--text);">"간결한 코드"와 "스레드 반납"은 서로 다른 축</b>이고, 코루틴은 둘 다 가져간다</span></div>
   </div>
 </section>
 
-<!-- ============ 22a. 7단계 도입 — 명시적 전파 ============ -->
+<!-- ============ 22a. STEP 7 도입 — 명시적 전파 ============ -->
 <section class="slide">
   <span class="kicker">Step 7 · Context Propagation</span>
   <h2 class="title">thread local, 코루틴에서는? — 일단 손으로</h2>
@@ -1148,38 +1148,67 @@ applicationCoroutineScope.launch(<span class="f">MDCContext</span>() + <span cla
         CallContextHolder.set(old)                                          <span class="c">// 원복 — 중단될 때마다</span>
 }</pre>
     <div class="callout" style="font-size:17px;">
-      3단계 decorator 와 같은 <b>캡처 → 주입 → 원복</b> — 코루틴은 스레드를 갈아타므로, element 가 <b>재개/중단마다</b> 대신 해준다.<br>
-      <span style="color:var(--muted); font-size:16px;">하지만 전파할 타입마다 element ×, 코루틴 시작점마다 + — <b style="color:var(--text);">3단계의 부채가 모양만 바꿔 돌아왔다.</b> 선언 하나로 안 될까? →</span>
+      STEP 3 decorator 와 같은 <b>캡처 → 주입 → 원복</b> — 코루틴은 스레드를 갈아타므로, element 가 <b>재개/중단마다</b> 대신 해준다.<br>
+      <span style="color:var(--muted); font-size:16px;">하지만 전파할 타입마다 element ×, 코루틴 시작점마다 + — <b style="color:var(--text);">STEP 3의 부채가 모양만 바꿔 돌아왔다.</b> 선언 하나로 안 될까? →</span>
     </div>
   </div>
 </section>
 
-<!-- ============ 22. 7단계 accessor ============ -->
+<!-- ============ 22b. STEP 7 자동 전파 설정 ============ -->
 <section class="slide">
-  <span class="kicker">Step 7 · Context Propagation</span>
+  <span class="kicker">Step 7 · 자동 전파 설정</span>
   <h2 class="title">spring boot 4 에서 thread local 전파하기</h2>
-  <p class="sub">손으로 짠 decorator 도, 방금의 element 도 걷어낸다 — <b style="color:var(--text);">선언 한 번</b>으로 모든 경계에</p>
+  <p class="sub">먼저 전파할 값을 등록하고, Spring 이 컨텍스트 경계를 넘겨주도록 설정한다</p>
   <div class="body" style="justify-content:center; gap:14px;">
-    <pre class="code xs"><span class="k">class</span> CallContextThreadLocalAccessor : ThreadLocalAccessor&lt;CallContext&gt; {
+    <div class="cols" style="flex:none; gap:18px; align-items:center;">
+      <div class="col">
+        <pre class="code xs"><span class="c">// ① 값을 읽고 · 주입하고 · 지우는 방법을 등록</span>
+<span class="k">class</span> CallContextThreadLocalAccessor :
+    ThreadLocalAccessor&lt;CallContext&gt; {
     <span class="k">override fun</span> <span class="f">key</span>(): Any = <span class="s">"callContext"</span>
     <span class="k">override fun</span> <span class="f">getValue</span>(): CallContext? = CallContextHolder.get()
-    <span class="k">override fun</span> <span class="f">setValue</span>(value: CallContext) = CallContextHolder.set(value)
+    <span class="k">override fun</span> <span class="f">setValue</span>(value: CallContext) =
+        CallContextHolder.set(value)
     <span class="k">override fun</span> <span class="f">setValue</span>() = CallContextHolder.clear()
 }</pre>
-    <pre class="code xs"><span class="f">Hooks.enableAutomaticContextPropagation</span>()   <span class="c">// Boot 4 엔 프로퍼티가 없다 — 직접 켠다. 빼먹으면 조용히 안 됨</span>
-ContextRegistry.getInstance()
-    .registerThreadLocalAccessor(CallContextThreadLocalAccessor())
-    .registerThreadLocalAccessor(MdcThreadLocalAccessor())
+      </div>
+      <div class="col">
+        <pre class="code xs" style="font-size:12.5px; line-height:1.45;"><span class="c">// ② 자동 전파 활성화 + accessor 등록</span>
+<span class="a">@PostConstruct</span>
+<span class="k">fun</span> <span class="f">enableAutomaticContextPropagation</span>() {
+    <span class="c">// Boot 4: 프로퍼티 대신 직접 활성화</span>
+    Hooks.<span class="f">enableAutomaticContextPropagation</span>()
+    ContextRegistry.getInstance()
+        .registerThreadLocalAccessor(
+            CallContextThreadLocalAccessor(),
+        )
+        .registerThreadLocalAccessor(
+            MdcThreadLocalAccessor(),
+        )
+}</pre>
+      </div>
+    </div>
+    <div class="callout" style="font-size:17px;">설정은 애플리케이션 경계에 한 번 — 서비스 코드에서는 <b>전파 대상도, 전파 시점도 직접 다루지 않는다.</b></div>
+  </div>
+</section>
 
-setTaskDecorator(<span class="er">CallContextTaskDecorator()</span>)          <span class="c">// 3단계: 직접 구현 — 이 파일이 통째로 사라진다</span>
-setTaskDecorator(<span class="ok">ContextPropagatingTaskDecorator()</span>)   <span class="c">// 7단계: Spring 제공</span>
-
-<span class="er">- coroutineScope(MDCContext() + CallContextElement()) { ... }</span>   <span class="c">// 방금 그 element 도</span>
-<span class="ok">+ coroutineScope { ... }</span>                                        <span class="c">// 서비스 코드엔 전파 코드가 0줄</span></pre>
-    <pre class="log sm"><span class="c" style="font-style:normal; color:#5C5372;">### accessor ON — 코루틴 dispatcher 와 @Async executor 가 등록 하나로 동시에 해결</span>
-<span class="lp">P[tDispatcher-worker-1]</span> <span class="ok">[trace=TR-V7]</span> [getAccounts] start        <span class="ok">ctx=MOBILE/TR-V7</span>
-<span class="lp">P[user-log-v7-1       ]</span> <span class="ok">[trace=TR-V7]</span> [saveEvent] start          <span class="ok">ctx=MOBILE/TR-V7</span>
-<span class="lp">P[tDispatcher-worker-3]</span> <span class="ok">[trace=TR-V7]</span> [getHomeItemInfos] start   <span class="ok">ctx=MOBILE/TR-V7</span></pre>
+<!-- ============ 22c. STEP 7 직접 주입 없는 코드 + 로그 ============ -->
+<section class="slide">
+  <span class="kicker">Step 7 · 자동 전파 결과</span>
+  <h2 class="title">직접 주입하지 않아도 전파된다</h2>
+  <p class="sub"><code style="font-family:var(--mono); color:var(--korange);">MDCContext()</code>도 <code style="font-family:var(--mono); color:var(--korange);">CallContextElement()</code>도 없지만, 모든 작업에서 같은 컨텍스트가 보인다</p>
+  <div class="body" style="justify-content:center; gap:8px;">
+    <pre class="code xs"><span class="k">suspend fun</span> <span class="f">getHomeItemsV7</span>(userId: UserId) = <span class="f">coroutineScope</span> { <span class="ok">// 직접 주입 없음</span>
+    <span class="k">val</span> accounts = coreBankAdapter.getAccounts(userId) <span class="c">// 톰캣 스레드에서 blocking</span>
+    <span class="k">val</span> homeCardInfoDeferred = <span class="f">async</span> { <span class="f">blockingIo</span> { homeItemInfoRepository.getHomeItemInfos(accountIds) } }
+    <span class="k">val</span> openBankBalanceDeferred = <span class="f">async</span> { <span class="f">blockingIo</span> { openBankingAdapter.getBalances(openBankAccountIds) } }
+    <span class="c">/* await 후 응답 조립 */</span>
+}</pre>
+    <pre class="log sm"><span class="c" style="font-style:normal; color:#5C5372;">### MDCContext() / CallContextElement() 없이 호출</span>
+<span class="lp">P[http-nio-8080-exec-2]</span> <span class="ok">[trace=TR-V7]</span> [getAccounts] start        <span class="ok">ctx=MOBILE/TR-V7</span>
+<span class="lp">P[tDispatcher-worker-3]</span> <span class="ok">[trace=TR-V7]</span> [getHomeItemInfos] start   <span class="ok">ctx=MOBILE/TR-V7</span>
+<span class="lp">P[tDispatcher-worker-2]</span> <span class="ok">[trace=TR-V7]</span> [getBalances] start       <span class="ok">ctx=MOBILE/TR-V7</span></pre>
+    <div class="callout" style="font-size:17px; padding-top:12px; padding-bottom:12px;">각 자식에 컨텍스트를 직접 넣지 않아도 <b>부모의 ThreadLocal 값이 재개 시점마다 자동 복원</b>된다.</div>
   </div>
 </section>
 
@@ -1189,17 +1218,18 @@ setTaskDecorator(<span class="ok">ContextPropagatingTaskDecorator()</span>)   <s
   <h2 class="title">다만, 자동 전파는 자식 코루틴까지만</h2>
   <p class="sub">완전 자동이 아니다 — 프레임워크가 코루틴의 <b style="color:var(--text);">진입점을 알아야</b> 붙는다</p>
   <div class="body" style="justify-content:center; gap:18px;">
-    <pre class="code"><span class="c">// suspend 컨트롤러에서 시작된 코루틴 트리 → 자식까지 자동 전파 ✓</span>
+    <pre class="code xs"><span class="c">// suspend 컨트롤러에서 시작된 코루틴 트리 → 자식까지 자동 전파 ✓</span>
 <span class="k">suspend fun</span> <span class="f">getHomeItems</span>(...) = coroutineScope {
     <span class="f">async</span> { ... }    <span class="ok">// ✓ 자식 — PropagationContextElement 를 물려받는다</span>
     <span class="f">launch</span> { ... }   <span class="ok">// ✓ 자식</span>
 }
 
 <span class="c">// 트리를 벗어나면 전파도 벗어난다 → 앞에서 본 element 로 수동 전파 ✗</span>
-applicationScope.<span class="f">launch</span> { ... }   <span class="er">// ✗ 부모가 다르다 (5단계 saveEvent 가 ctx=없음인 이유)</span>
-<span class="f">runBlocking</span> { ... }               <span class="er">// ✗ CoroutinesUtils 를 거치지 않는다 (5단계 방식)</span>
+applicationCoroutineScope.<span class="f">launch</span> { ... }   <span class="er">// ✗ STEP 5와 동일 — 부모가 달라 ctx=없음</span>
 
-applicationScope.<span class="f">launch</span>(<span class="f">MDCContext</span>() + <span class="f">CallContextElement</span>()) { ... }   <span class="ok">// ✓ 손으로 얹으면 된다</span></pre>
+applicationCoroutineScope.<span class="f">launch</span>(
+    <span class="f">MDCContext</span>() + <span class="f">CallContextElement</span>(),
+) { ... }   <span class="ok">// ✓ 손으로 얹으면 된다</span></pre>
     <div class="callout">
       원리: Spring MVC 가 suspend 컨트롤러를 호출할 때 CoroutineContext 에 <b>PropagationContextElement</b> 를 얹고,
       코루틴이 <b>재개될 때마다</b> accessor 로 ThreadLocal 을 복원한다. <b>방금 손으로 만든 element 와 같은 메커니즘</b>이다.<br>
@@ -1228,18 +1258,18 @@ applicationScope.<span class="f">launch</span>(<span class="f">MDCContext</span>
   </div>
 </section>
 
-<!-- ============ 24. 8단계 VT 도입 ============ -->
+<!-- ============ 24. STEP 8 VT 도입 ============ -->
 <section class="slide">
   <span class="kicker">Step 8 · Virtual Thread</span>
   <h2 class="title">virtual thread 도입하기</h2>
-  <p class="sub">애플리케이션 코드는 <b style="color:var(--text);">한 글자도</b> 바뀌지 않는다 — 1단계 코드를 그대로 다시 쓴다</p>
+  <p class="sub">애플리케이션 코드는 <b style="color:var(--text);">한 글자도</b> 바뀌지 않는다 — STEP 1 코드를 그대로 다시 쓴다</p>
   <div class="body" style="justify-content:center; gap:16px;">
-    <pre class="code"><span class="c"># application-vt.yaml — 이게 전부다</span>
+    <pre class="code sm"><span class="c"># application-vt.yaml — 이게 전부다</span>
 <span class="t">spring</span>:
   <span class="t">threads</span>:
     <span class="t">virtual</span>:
       <span class="t">enabled</span>: <span class="k">true</span></pre>
-    <pre class="log"><span class="c" style="font-style:normal; color:#5C5372;">### 같은 /api/v1 — 바뀐 것은 로그 첫 글자 P → V 와 스레드 이름뿐. 응답 시간은 그대로 1.9s</span>
+    <pre class="log sm"><span class="c" style="font-style:normal; color:#5C5372;">### 같은 /api/v1 — 바뀐 것은 로그 첫 글자 P → V 와 스레드 이름뿐. 응답 시간은 그대로 1.9s</span>
 <span class="lv">V[tomcat-handler-0    ]</span> [getAccounts] start
 <span class="lv">V[tomcat-handler-0    ]</span> [getHomeItemInfos] start
 <span class="lv">V[tomcat-handler-0    ]</span> [getBalances] start
@@ -1268,12 +1298,12 @@ applicationScope.<span class="f">launch</span>(<span class="f">MDCContext</span>
       </div>
     </div>
     <div>
-      <div class="tl-cap" style="margin-bottom:6px;"><b style="color:var(--text);">② Coroutine (suspend)</b> — 톰캣 스레드는 즉시 반납, 일은 dispatcher 워커가 잠깐씩</div>
+      <div class="tl-cap" style="margin-bottom:6px;"><b style="color:var(--text);">② Coroutine (suspend)</b> — 코어뱅킹까지는 톰캣, 이후 병렬 조회는 dispatcher</div>
       <div class="tl">
         <div class="tl-row"><div class="tname">http-nio-exec-1 <span class="lp">P</span></div>
-          <div class="track"><div class="seg work" style="left:0%; width:4%;"></div><div class="seg free" style="left:5%; width:95%;">반납 — 그동안 다른 요청 처리</div></div></div>
+          <div class="track"><div class="seg io" style="left:0%; width:35%;">getAccounts 300ms</div><div class="seg free" style="left:36%; width:64%;">반납 — 다른 요청 처리</div></div></div>
         <div class="tl-row"><div class="tname">Dispatchers.IO worker <span class="lp">P</span></div>
-          <div class="track"><div class="seg io" style="left:4%; width:35%;">getAccounts</div><div class="seg io" style="left:41%; width:56%;">병렬 조회</div></div></div>
+          <div class="track"><div class="seg io" style="left:36%; width:64%;">병렬 조회</div></div></div>
       </div>
     </div>
     <div>
@@ -1289,11 +1319,11 @@ applicationScope.<span class="f">launch</span>(<span class="f">MDCContext</span>
   </div>
 </section>
 
-<!-- ============ 26. 9단계: VT + Coroutine ============ -->
+<!-- ============ 26. STEP 9: VT + Coroutine ============ -->
 <section class="slide">
   <span class="kicker">Step 9 · VT + Coroutine</span>
   <h2 class="title">그럼 코루틴은 이제 필요 없나?</h2>
-  <p class="sub">vt 프로파일에서 5·6단계 코드를 <b style="color:var(--text);">그대로</b> 다시 돌려본다 — 새 코드 없음</p>
+  <p class="sub">vt 프로파일에서 STEP 5·6 코드를 <b style="color:var(--text);">그대로</b> 다시 돌려본다 — 새 코드 없음</p>
   <div class="body">
     <div class="cols">
       <div class="col">
@@ -1307,17 +1337,17 @@ applicationScope.<span class="f">launch</span>(<span class="f">MDCContext</span>
           <tr><td>컨텍스트 전파</td><td class="bad">X</td></tr>
         </table>
         <div class="callout" style="font-size:17px;">v1 은 VT 위에서도 <b>순차 실행 1.9초</b>다.<br>
-        동시에 호출하려면 여전히 무언가가 필요하고,<br>그 순간 2단계의 질문들이 전부 되살아난다.</div>
+        동시에 호출하려면 여전히 무언가가 필요하고,<br>그 순간 STEP 2의 질문들이 전부 되살아난다.</div>
       </div>
       <div class="col">
         <pre class="log sm"><span class="c" style="font-style:normal; color:#5C5372;">### vt 프로파일 + v6 (suspend) — 0.86s</span>
 <span class="lv">V[tomcat-handler-4    ]</span> [v6] 진입
-<span class="lp">P[tDispatcher-worker-1]</span> [getAccounts] start
+<span class="lv">V[tomcat-handler-4    ]</span> [getAccounts] start
 <span class="lp">P[tDispatcher-worker-2]</span> [getHomeItemInfos] start
 <span class="lp">P[tDispatcher-worker-5]</span> [getBalances] start
 <span class="lp">P[tDispatcher-worker-5]</span> [v6] 반환</pre>
         <div class="card"><h4>양쪽 이득이 그대로 합쳐진다</h4>
-          <p>톰캣은 가상 스레드라 값싸고, suspend 로 반납까지 되고,<br>구조적 동시성·컨텍스트 전파도 그대로.</p></div>
+          <p>코어뱅킹은 톰캣 가상 스레드에서 실행하고,<br>이후는 suspend 로 반납·구조적 동시성도 그대로.</p></div>
         <div class="card"><h4 style="color:var(--warn);">그런데 dispatcher 가 아직 P 다</h4>
           <p><b style="color:var(--text);">Dispatchers.IO = 기본 64개 플랫폼 스레드 풀.</b><br>
           톰캣의 천장은 없앴는데 바로 뒤에 다른 천장이 있었다.<br>동시 요청 65개째부터 여기서 대기가 생긴다.</p></div>
@@ -1326,7 +1356,7 @@ applicationScope.<span class="f">launch</span>(<span class="f">MDCContext</span>
   </div>
 </section>
 
-<!-- ============ 27. 9단계 동작 방식 ============ -->
+<!-- ============ 27. STEP 9 동작 방식 ============ -->
 <section class="slide">
   <span class="kicker">Step 9 · 동작 원리</span>
   <h2 class="title">캐리어 스레드와 디스패처는 어떻게 맞물리나</h2>
@@ -1334,12 +1364,12 @@ applicationScope.<span class="f">launch</span>(<span class="f">MDCContext</span>
     <div class="tl">
       <div class="tl-cap" style="margin-bottom:2px;"><b style="color:#F8A94A;">가상 스레드의 세계</b> — 톰캣 워커 (spring.threads.virtual.enabled)</div>
       <div class="tl-row"><div class="tname">tomcat-handler-4 <span class="lv">V</span></div>
-        <div class="track"><div class="seg vt" style="left:0%; width:5%;">진입</div><div class="seg free" style="left:6%; width:94%;">suspend — 첫 중단점에서 VT 도 캐리어도 모두 해방</div></div></div>
+        <div class="track"><div class="seg io" style="left:0%; width:39%;">getAccounts 300ms</div><div class="seg free" style="left:40%; width:60%;">suspend — 병렬 조회 동안 반납</div></div></div>
       <div class="tl-row"><div class="tname">carrier pool <span class="lp">P</span> ×CPU</div>
-        <div class="track"><div class="seg work" style="left:0%; width:5%;"></div><div class="seg hold" style="left:6%; width:94%;">다른 가상 스레드들을 실행</div></div></div>
+        <div class="track"><div class="seg work" style="left:0%; width:39%;">I/O 대기 중 unmount</div><div class="seg hold" style="left:40%; width:60%;">다른 가상 스레드들을 실행</div></div></div>
       <div class="tl-cap" style="margin:10px 0 2px;"><b style="color:#7E9CD8;">플랫폼 스레드의 세계</b> — 코루틴 dispatcher (blockingIo → Dispatchers.IO)</div>
       <div class="tl-row"><div class="tname">tDispatcher-worker-1 <span class="lp">P</span></div>
-        <div class="track"><div class="seg io" style="left:5%; width:34%;">getAccounts 300</div><div class="seg io" style="left:41%; width:56%;">getBalances 500</div></div></div>
+        <div class="track"><div class="seg io" style="left:41%; width:56%;">getBalances 500</div></div></div>
       <div class="tl-row"><div class="tname">tDispatcher-worker-2 <span class="lp">P</span></div>
         <div class="track"><div class="seg io" style="left:41%; width:23%;">getHomeItemInfos 200</div><div class="seg free" style="left:65%; width:32%;">응답은 마지막 워커가 쓴다</div></div></div>
     </div>
@@ -1347,14 +1377,14 @@ applicationScope.<span class="f">launch</span>(<span class="f">MDCContext</span>
       <div class="card" style="flex:1;"><h4>요청의 수명은 코루틴이 관리</h4>
         <p>suspend → 재개를 오가며 취소·실패·timeout 이<br>구조적 동시성 트리를 타고 전파된다.</p></div>
       <div class="card" style="flex:1;"><h4>실행 비용은 각 세계가 지불</h4>
-        <p>톰캣 쪽은 VT 라 공짜에 가깝고,<br>blocking 호출은 IO 풀의 플랫폼 스레드가 담당.</p></div>
+        <p>코어뱅킹은 톰캣 VT, 이후 병렬 blocking 호출은<br>IO 풀의 플랫폼 스레드가 담당.</p></div>
       <div class="card" style="flex:1;"><h4 style="color:var(--bad);">병목은 가장 낮은 천장으로</h4>
-        <p>Dispatchers.IO 의 <b style="color:var(--text);">64개 한도</b>가 남은 천장.<br>→ 10단계에서 이 풀을 갈아치운다.</p></div>
+        <p>Dispatchers.IO 의 <b style="color:var(--text);">64개 한도</b>가 남은 천장.<br>→ STEP 10에서 이 풀을 갈아치운다.</p></div>
     </div>
   </div>
 </section>
 
-<!-- ============ 28. 10단계 코드 ============ -->
+<!-- ============ 28. STEP 10 코드 ============ -->
 <section class="slide">
   <span class="kicker">Step 10 · VT Dispatcher</span>
   <h2 class="title">virtual thread dispatcher</h2>
@@ -1367,21 +1397,21 @@ applicationScope.<span class="f">launch</span>(<span class="f">MDCContext</span>
         .<span class="f">asCoroutineDispatcher</span>()   <span class="c">// Dispatchers.LOOM 은 아직 없다 — 직접 만든다</span>
 }</pre>
     <pre class="code"><span class="c">// 서비스는 dispatcher 인자 하나만 바뀐다</span>
-blockingIo { ... }                            <span class="c">// 7단계: Dispatchers.IO (플랫폼 64개)</span>
-blockingIo(<span class="ok">virtualThreadDispatcher</span>) { ... }   <span class="c">// 10단계: 가상 스레드</span></pre>
-    <pre class="log sm"><span class="lv">V[vt-dispatch-0]</span> <span class="ok">[trace=TR-11]</span> [getAccounts] start        <span class="ok">ctx=UNKNOWN/TR-11 ← 전파도 그대로 따라온다</span>
-<span class="lv">V[vt-dispatch-1]</span> <span class="ok">[trace=TR-11]</span> [getHomeItemInfos] start
+blockingIo { ... }                            <span class="c">// STEP 7: Dispatchers.IO (플랫폼 64개)</span>
+blockingIo(<span class="ok">virtualThreadDispatcher</span>) { ... }   <span class="c">// STEP 10: 가상 스레드</span></pre>
+    <pre class="log sm"><span class="lv">V[tomcat-handler-4]</span> <span class="ok">[trace=TR-11]</span> [getAccounts] start        <span class="dim">← 코어뱅킹은 톰캣</span>
+<span class="lv">V[vt-dispatch-1]</span> <span class="ok">[trace=TR-11]</span> [getHomeItemInfos] start   <span class="ok">← 전파도 그대로</span>
 <span class="lv">V[vt-dispatch-2]</span> <span class="ok">[trace=TR-11]</span> [getBalances] start</pre>
   </div>
 </section>
 
-<!-- ============ 29. 10단계 동작 방식 ============ -->
+<!-- ============ 29. STEP 10 동작 방식 ============ -->
 <section class="slide">
   <span class="kicker">Step 10 · 동작 원리</span>
-  <h2 class="title">9단계와 뭐가 다른가</h2>
+  <h2 class="title">STEP 9와 뭐가 다른가</h2>
   <div class="body" style="justify-content:center; gap:20px;">
     <div>
-      <div class="tl-cap" style="margin-bottom:6px;"><b style="color:var(--text);">9단계</b> — 두 세계가 공존: 톰캣은 V, blocking 호출은 P (64개 한도)</div>
+      <div class="tl-cap" style="margin-bottom:6px;"><b style="color:var(--text);">STEP 9</b> — 두 세계가 공존: 톰캣은 V, blocking 호출은 P (64개 한도)</div>
       <div class="tl">
         <div class="tl-row"><div class="tname">tomcat-handler <span class="lv">V</span></div>
           <div class="track"><div class="seg vt" style="left:0%; width:4%;"></div><div class="seg free" style="left:5%; width:95%;">suspend</div></div></div>
@@ -1390,7 +1420,7 @@ blockingIo(<span class="ok">virtualThreadDispatcher</span>) { ... }   <span clas
       </div>
     </div>
     <div>
-      <div class="tl-cap" style="margin-bottom:6px;"><b style="color:var(--text);">10단계</b> — 전부 가상 스레드: 대기는 캐리어를 잡지 않고, 개수 한도도 없다</div>
+      <div class="tl-cap" style="margin-bottom:6px;"><b style="color:var(--text);">STEP 10</b> — 전부 가상 스레드: 대기는 캐리어를 잡지 않고, 개수 한도도 없다</div>
       <div class="tl">
         <div class="tl-row"><div class="tname">tomcat-handler <span class="lv">V</span></div>
           <div class="track"><div class="seg vt" style="left:0%; width:4%;"></div><div class="seg free" style="left:5%; width:95%;">suspend</div></div></div>
@@ -1420,11 +1450,11 @@ blockingIo(<span class="ok">virtualThreadDispatcher</span>) { ... }   <span clas
         <p>풀 크기 30 = 오픈뱅킹 동시 호출 30 상한.<br><b style="color:var(--text);">→ 풀과 함께 사라져버린 역할.</b> 문제는 여기.</p></div>
     </div>
     <ul class="big" style="font-size:20px; gap:14px;">
-      <li>요청이 몰리면 오픈뱅킹에 동시 호출 <b class="grad-text">3,000개</b>를 그대로 날릴 수 있다 — 상한을 걸어둔 8단계 이전보다 위험</li>
+      <li>요청이 몰리면 오픈뱅킹에 동시 호출 <b class="grad-text">3,000개</b>를 그대로 날릴 수 있다 — 상한을 걸어둔 STEP 8 이전보다 위험</li>
       <li>DB 커넥션 풀은 그대로 10개 — 가상 스레드 10,000개가 커넥션 10개를 기다리며 문제가 <b style="color:var(--text);">더 늦게</b> 드러난다</li>
       <li>큐가 없으니 “큐 대기 증가”라는 과부하 신호도 사라진다 — 백프레셔 없음</li>
     </ul>
-    <div class="callout">가상 스레드는 <b>실행 자원 재사용만 없앤다.</b> 동시성 제한은 따로 챙겨야 한다 → 11단계</div>
+    <div class="callout">가상 스레드는 <b>실행 자원 재사용만 없앤다.</b> 동시성 제한은 따로 챙겨야 한다 → STEP 11</div>
   </div>
 </section>
 
@@ -1435,7 +1465,7 @@ blockingIo(<span class="ok">virtualThreadDispatcher</span>) { ... }   <span clas
   <p class="sub">Spring Framework 7 <code style="font-family:var(--mono); font-size:16px; color:var(--korange);">org.springframework.resilience</code> — 외부 라이브러리 없이 동시성 제한을 실행 자원에서 분리한다</p>
   <div class="body" style="justify-content:center; gap:22px;">
     <table class="tbl">
-      <tr><th></th><th>2단계 — Thread Pool 로 제한</th><th>11단계 — @ConcurrencyLimit</th></tr>
+      <tr><th></th><th>STEP 2 — Thread Pool 로 제한</th><th>STEP 11 — @ConcurrencyLimit</th></tr>
       <tr><td>상한 초과 시</td><td><span class="bad">새거나(CallerRuns) 버리거나(Abort)</span></td><td><span class="good">기다리거나(BLOCK) 거절하거나(REJECT)</span></td></tr>
       <tr><td>기다리는 비용</td><td class="bad">호출 스레드(톰캣)를 태운다</td><td class="good">세마포어 기반 — VT 위에선 캐리어도 반납</td></tr>
       <tr><td>상한의 위치</td><td>실행 자원(풀 크기)에 얹혀 있음</td><td class="good">보호할 메서드에 선언</td></tr>
@@ -1449,7 +1479,7 @@ blockingIo(<span class="ok">virtualThreadDispatcher</span>) { ... }   <span clas
   </div>
 </section>
 
-<!-- ============ 32. 11단계 코드 ============ -->
+<!-- ============ 32. STEP 11 코드 ============ -->
 <section class="slide">
   <span class="kicker">Step 11 · Resilience</span>
   <h2 class="title">안정성 되찾기 — 실제 구현</h2>
@@ -1458,7 +1488,7 @@ blockingIo(<span class="ok">virtualThreadDispatcher</span>) { ... }   <span clas
 <span class="k">fun</span> <span class="f">getBalances</span>(accountIds: List&lt;AccountId&gt;): List&lt;OpenBankBalance&gt; { ... }
 
 <span class="k">suspend fun</span> <span class="f">getHomeItemsV11</span>(...) = <span class="f">withTimeout</span>(timeoutMillis) {   <span class="c">// 묶음 전체 timeout</span>
-    coroutineScope { <span class="c">/* 5단계와 같은 구조 */</span> }
+    coroutineScope { <span class="c">/* STEP 5와 같은 구조 */</span> }
 }</pre>
     <div class="cols" style="flex:none; gap:20px;">
       <div class="col">
@@ -1478,37 +1508,41 @@ blockingIo(<span class="ok">virtualThreadDispatcher</span>) { ... }   <span clas
 <span class="er">TimeoutCancellationException</span> <span class="dim">— end 는 하나도 없다</span>
 <span class="lp">P[user-log-v7-4]</span> [saveEvent] <span class="dim">← 스코프 밖. 의도대로 계속 실행</span></pre>
         <p class="note" style="margin-top:8px;">withTimeout → 스코프 취소 → 자식 취소 → 인터럽트 → blocking 중단.<br>
-        이 사슬이 가능한 건 <b style="color:var(--muted);">5단계의 구조적 동시성</b> 덕분 —<br>가상 스레드만으로는 취소를 전파할 부모-자식 관계가 없다.</p>
+        이 사슬이 가능한 건 <b style="color:var(--muted);">STEP 5의 구조적 동시성</b> 덕분 —<br>가상 스레드만으로는 취소를 전파할 부모-자식 관계가 없다.</p>
       </div>
     </div>
     <div class="callout" style="font-size:17px;">가상 스레드(값싼 실행) + 구조적 동시성(수명·취소) + @ConcurrencyLimit(하위 시스템 보호) — <b>층이 달라서 서로를 대체하지 않는다</b></div>
   </div>
 </section>
 
-<!-- ============ 33a. 12단계 StructuredTaskScope ============ -->
+<!-- ============ 33a. STEP 12 StructuredTaskScope ============ -->
 <section class="slide">
   <span class="kicker">Step 12 · 번외 (Preview)</span>
   <h2 class="title">virtual thread 만으로 비동기·병렬 — StructuredTaskScope</h2>
   <p class="sub">JDK 25 preview (JEP 505, 5차) — 구조적 동시성은 코루틴만의 것이 아니다</p>
-  <div class="body" style="justify-content:center; gap:14px;">
+  <div class="body" style="justify-content:center; gap:10px;">
     <div class="cols" style="flex:none; gap:20px;">
       <div class="col">
-        <pre class="code xs"><span class="c">// 5단계 — Coroutine</span>
+        <pre class="code xs" style="font-size:12px; line-height:1.45; padding:14px 18px;"><span class="c">// STEP 5 — Coroutine</span>
 <span class="f">coroutineScope</span> {
-    <span class="k">val</span> a = <span class="f">async</span> { infoRepository.get(ids) }
+    <span class="k">val</span> a = <span class="f">async</span> { infoRepository.get(ids) } <span class="c">// 결과 필요</span>
     <span class="k">val</span> b = <span class="f">async</span> { openBanking.get(ids) }
+    <span class="f">launch</span> { saveAuditLog() } <span class="c">// 결과 불필요</span>
 
     assemble(a.await(), b.await())
 }</pre>
       </div>
       <div class="col">
-        <pre class="code xs"><span class="c">// 12단계 — StructuredTaskScope</span>
+        <pre class="code xs" style="font-size:12px; line-height:1.45; padding:14px 18px;"><span class="c">// STEP 12 — StructuredTaskScope</span>
 StructuredTaskScope.<span class="f">open</span>(
     Joiner.awaitAllSuccessfulOrThrow(),
     { it.withTimeout(ofMillis(timeout)) },
 ).use { scope ->
-    <span class="k">val</span> a = scope.fork(Callable { infoRepository.get(ids) })
+    <span class="k">val</span> a = scope.fork(Callable { infoRepository.get(ids) }) <span class="c">// async</span>
     <span class="k">val</span> b = scope.fork(Callable { openBanking.get(ids) })
+    scope.fork(Runnable {
+        saveAuditLog()
+    }) <span class="c">// launch</span>
     scope.join()
     assemble(a.get(), b.get())
 }</pre>
@@ -1517,11 +1551,53 @@ StructuredTaskScope.<span class="f">open</span>(
     <pre class="log sm"><span class="c" style="font-style:normal; color:#5C5372;">### 결과도 거의 같다 — 부모-자식, 형제 취소, 묶음 timeout, 누수 불가</span>
 <span class="lv">V[virtual-123]</span> [getBalances] <span class="er">의도된 실패</span>
 <span class="lv">V[virtual-122]</span> [getHomeItemInfos] <span class="ok">취소됨(인터럽트)</span>   <span class="dim">← 형제 취소도 된다. 인정할 건 인정하자</span></pre>
-    <p class="note">Kotlin 함정 하나: <code style="font-family:var(--mono);">scope.fork { }</code> 는 Runnable 오버로드로 잡혀서 <code style="font-family:var(--mono);">get()</code> 이 조용히 null — <code style="font-family:var(--mono);">fork(Callable { })</code> 로 써야 한다</p>
+    <p class="note"><b style="color:var(--muted);">async ↔ fork(Callable)</b>, <b style="color:var(--muted);">coroutineScope의 launch ↔ fork(Runnable)</b>.
+      Kotlin에서 <code style="font-family:var(--mono);">fork { }</code>는 Runnable으로 잡히므로 결과가 필요하면 Callable을 명시한다.<br>
+      STEP 5의 <code style="font-family:var(--mono);">applicationCoroutineScope.launch</code>처럼 스코프 밖으로 내보내는 작업은 직접 대응물이 없다 — StructuredTaskScope는 닫힐 때 모든 subtask를 기다린다.</p>
   </div>
 </section>
 
-<!-- ============ 33b. 12단계 한계 ============ -->
+<!-- ============ 33b. STEP 12 MDC 전파 ============ -->
+<section class="slide">
+  <span class="kicker">Step 12 · Context Propagation</span>
+  <h2 class="title">StructuredTaskScope에서 MDC 전파하기</h2>
+  <p class="sub">자동 bridge는 없다 — owner 스레드에서 캡처하고, 각 subtask의 경계를 직접 감싼다</p>
+  <div class="body" style="justify-content:center;">
+    <div class="cols" style="gap:20px; align-items:center;">
+      <div class="col" style="flex:1.25;">
+        <pre class="code xs"><span class="c">// STEP 7의 accessor 재사용</span>
+<span class="k">val</span> snapshot = ContextSnapshotFactory.builder()
+    .build()
+    .<span class="f">captureAll</span>()  <span class="c">// owner 스레드에서 캡처</span>
+
+StructuredTaskScope.<span class="f">open</span>(...).use { scope ->
+    <span class="k">val</span> a = scope.fork(
+        snapshot.<span class="f">wrap</span>(Callable {
+            infoRepository.get(ids)
+        }),
+    )
+    <span class="k">val</span> b = scope.fork(
+        snapshot.<span class="f">wrap</span>(Callable {
+            openBanking.get(ids)
+        }),
+    )
+    scope.join()
+}</pre>
+      </div>
+      <div class="col" style="flex:.9;">
+        <pre class="log sm"><span class="c" style="font-style:normal; color:#5C5372;">### snapshot.wrap 적용</span>
+<span class="lv">V[virtual-72]</span> <span class="ok">[trace=VT-12]</span> [getInfos]    <span class="ok">ctx=MOBILE/VT-12</span>
+<span class="lv">V[virtual-73]</span> <span class="ok">[trace=VT-12]</span> [getBalances] <span class="ok">ctx=MOBILE/VT-12</span></pre>
+        <div class="card"><h4>왜 동작하나</h4>
+          <p><code style="font-family:var(--mono);">wrap(Callable)</code>이 실행 직전에 등록된 ThreadLocal을 설정하고, 종료 시 이전 값으로 원복한다.</p></div>
+        <div class="card"><h4>JDK 네이티브 방식은 ScopedValue</h4>
+          <p>ScopedValue binding은 subtask에 자동 상속된다. 다만 SLF4J MDC는 ThreadLocal이라, 그대로 쓰려면 여전히 bridge가 필요하다.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 33c. STEP 12 한계 ============ -->
 <section class="slide">
   <span class="kicker">Step 12 · 번외 (Preview)</span>
   <h2 class="title">그래도 남는 차이</h2>
@@ -1529,13 +1605,14 @@ StructuredTaskScope.<span class="f">open</span>(
     <table class="tbl sm">
       <tr><th></th><th>Coroutine</th><th>StructuredTaskScope</th></tr>
       <tr><td>상태</td><td class="good">정식 — 오늘 프로덕션에</td><td class="bad">preview (--enable-preview 필요)</td></tr>
-      <tr><td>컨트롤러 통합</td><td class="good">suspend — 반환 타입 그대로, 스레드 반납</td><td class="bad">join() 이 톰캣 스레드를 붙잡는다 (VT 전제)</td></tr>
-      <tr><td>컨텍스트 전파</td><td class="good">accessor 로 자동 (7단계)</td><td class="bad">안 됨 — ScopedValue 로 갈아엎어야</td></tr>
+      <tr><td>컨트롤러 통합</td><td class="good">suspend — 코어뱅킹 이후 스레드 반납</td><td class="bad">join() 이 톰캣 스레드를 붙잡는다 (VT 전제)</td></tr>
+      <tr><td>컨텍스트 전파</td><td class="good">accessor 로 자동 (STEP 7)</td><td class="warn2">자동 아님 — snapshot.wrap 필요</td></tr>
       <tr><td>점진 도입</td><td class="good">runBlocking 하나로 시작 → 위로 확장</td><td class="warn2">가상 스레드 켜져 있어야 성립</td></tr>
       <tr><td>스트림</td><td class="good">Flow, Channel</td><td class="bad">대응물 없음</td></tr>
     </table>
-    <pre class="log sm"><span class="lv">V[tomcat-handler-7]</span> [v12] 진입
-<span class="lv">V[virtual-72      ]</span> <span class="er">[trace=none]</span> [getHomeItemInfos] start  <span class="er">ctx=없음</span>  <span class="dim">← 3~7단계의 노력이 여기선 무효</span>
+    <pre class="log sm"><span class="c" style="font-style:normal; color:#5C5372;">### snapshot.wrap 없이 실행하면</span>
+<span class="lv">V[tomcat-handler-7]</span> [v12] 진입
+<span class="lv">V[virtual-72      ]</span> <span class="er">[trace=none]</span> [getHomeItemInfos] start  <span class="er">ctx=없음</span>  <span class="dim">← accessor가 자동 호출되지는 않는다</span>
 <span class="lv">V[tomcat-handler-7]</span> [v12] 반환 <span class="wa">(진입과 같은 스레드 — 830ms 점유)</span></pre>
     <div class="callout">VT 가 “값싼 실행”을, STS 가 “구조화”를 가져갔지만 — <b>blocking MVC 에서 오늘 쓸 수 있는 것</b> 기준으로는 아직 코루틴이다</div>
   </div>
@@ -1617,12 +1694,12 @@ StructuredTaskScope.<span class="f">open</span>(
         <div class="track"><div class="seg io" style="left:0%; width:100%;">톰캣 스레드가 1.84s 통째로</div></div></div>
       <div class="tl-row"><div class="tname">2~3. Future 병렬 <span class="lp">P</span></div>
         <div class="track"><div class="seg io" style="left:0%; width:45%;">0.83s — 여전히 응답까지 점유</div><div class="seg hold" style="left:46%; width:20%;">풀 3~4개 관리</div></div></div>
-      <div class="tl-row"><div class="tname">5~6. Coroutine <span class="lp">P</span></div>
-        <div class="track"><div class="seg work" style="left:0%; width:3%;"></div><div class="seg free" style="left:4%; width:42%;">suspend 로 반납 (~1ms)</div><div class="seg io" style="left:47%; width:19%;">IO 64 천장</div></div></div>
+      <div class="tl-row"><div class="tname">6~7. Coroutine <span class="lp">P</span></div>
+        <div class="track"><div class="seg io" style="left:0%; width:35%;">코어뱅킹 320ms</div><div class="seg free" style="left:36%; width:30%;">suspend 로 반납</div><div class="seg io" style="left:67%; width:19%;">IO 64 천장</div></div></div>
       <div class="tl-row"><div class="tname">8. Virtual Thread <span class="lv">V</span></div>
         <div class="track"><div class="seg vt" style="left:0%; width:3%;"></div><div class="seg free" style="left:4%; width:96%;">blocking 그대로인데 unmount — 코드 0줄 수정</div></div></div>
       <div class="tl-row"><div class="tname">9~11. VT + 코루틴 <span class="lv">V</span></div>
-        <div class="track"><div class="seg vt" style="left:0%; width:3%;"></div><div class="seg free" style="left:4%; width:63%;">값싼 실행 + 구조적 동시성 + @ConcurrencyLimit</div><div class="seg work" style="left:68%; width:32%;">0.83s / 점유 ~0ms</div></div></div>
+        <div class="track"><div class="seg vt" style="left:0%; width:35%;">톰캣 VT 코어뱅킹</div><div class="seg free" style="left:36%; width:32%;">suspend 반납</div><div class="seg work" style="left:69%; width:31%;">구조적 동시성 + 상한</div></div></div>
     </div>
     <div class="callout" style="font-size:19px;">
       Virtual Thread 는 코루틴을 대체한 것이 아니라, 코루틴이 필요했던 이유 중 하나 — <b>값싼 실행</b> — 를 제거했다.<br>

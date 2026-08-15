@@ -37,7 +37,7 @@ import java.util.concurrent.Executor
  * - 이득은 과부하 시 "한도를 넘는 대기를 스레드가 아니라 큐 항목으로 표현"하는 것뿐이다
  *
  * 평시 실익이 없는 복잡도라 여기서는 감수하지 않는다.
- * 점유를 진짜 0 으로 만드는 것은 6단계의 suspend 컨트롤러가 executor 추가 없이 해준다.
+ * 6단계도 비교 조건을 맞추기 위해 코어뱅킹은 blocking 으로 남겨 320ms 점유를 유지한다.
  *
  * **얻는 것**: 톰캣 스레드 점유가 830ms -> ~300ms (join 대기 제거).
  *
@@ -52,7 +52,8 @@ import java.util.concurrent.Executor
  * - 클라이언트가 끊어도 계속 돎
  * - 묶음 단위 timeout 없음 (DeferredResult 의 timeout 은 **응답**에만 걸린다)
  *
- * 5단계에서 코루틴이 "톰캣 스레드 반납"과 "위에서 아래로 읽히는 코드"를 동시에 가져간다.
+ * 6단계에서 코루틴이 "코어뱅킹 이후 톰캣 스레드 반납"과
+ * "위에서 아래로 읽히는 코드"를 동시에 가져간다.
  */
 @Service
 class HomeItemServiceV4(

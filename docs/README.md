@@ -148,7 +148,7 @@ curl "localhost:8080/api/tips/point?userId=user-1"
 | `home-info-N` / `open-banking-N` / `user-log-N` | 2단계 executor | 2단계 |
 | `*-v3-N` | 3단계 executor (`CallContextTaskDecorator`) | 3·4단계 |
 | `DefaultDispatcher-worker-N` | `Dispatchers.IO` (플랫폼, 기본 64개) | 5·6·7단계 |
-| `http-nio-8080-exec-N` (v5 의 `getAccounts`) | 5단계는 병렬 구간만 코루틴이라 앞부분이 톰캣 스레드 | 5단계 |
+| 톰캣 워커 (v5 이후 `getAccounts`) | 코어뱅킹은 모든 단계에서 톰캣 스레드에서 blocking | 5~12단계 |
 | `user-log-v7-N` | 7단계 executor (`ContextPropagatingTaskDecorator`) | 7단계~ |
 | `vt-dispatch-N` | 가상 스레드 dispatcher | 10·11단계 |
 | `virtual-N` | `StructuredTaskScope` 가 만든 가상 스레드 | 12단계 |
@@ -161,8 +161,8 @@ curl "localhost:8080/api/tips/point?userId=user-1"
 | v2 / v3 | 0.83s | 830ms | 병렬 + fire-and-forget |
 | v4 | 0.87s | **320ms** | DeferredResult. 코어뱅킹은 blocking 유지, `join()` 대기만 제거 |
 | v5 | 1.00s | 828ms | 코루틴. `runBlocking` 이 **서비스 안 병렬 구간만** 감쌈 |
-| v6 / v7 | 0.85s | **~1ms** | suspend 컨트롤러 |
-| v10 / v11 | 0.83s | ~0ms | 가상 스레드 dispatcher |
+| v6 / v7 | 0.85s | **320ms** | suspend 컨트롤러. 코어뱅킹은 blocking 유지 |
+| v10 / v11 | 0.83s | 320ms | 코어뱅킹은 톰캣 VT, 병렬 조회는 가상 스레드 dispatcher |
 | v12 | 0.83s | 830ms | StructuredTaskScope (`join` 이 막음) |
 
 응답 시간은 4단계 이후 거의 변하지 않는다.
