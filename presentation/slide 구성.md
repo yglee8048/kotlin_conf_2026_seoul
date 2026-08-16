@@ -163,10 +163,11 @@ CPU → [OS 스케줄러 → 커널 스레드] → JNI → [CoroutineDispatcher 
 
 # 17.
 STEP 5 코드를 보여준다.
+blocking 호출은 처음부터 Dispatchers.IO 에서 실행하고, dispatcher 없이 실행했을 때의 차이는 말로만 소개한다.
 코드가 화면에 잘 보이도록 적당히 몇 개의 슬라이드에 나눠서 코드를 보여준다.
 ```markdown
 # 코루틴을 도입해보자
-(코드)
+(runBlocking(Dispatchers.IO) 코드)
 ```
 
 # 18.
@@ -308,6 +309,19 @@ ScopedValue는 subtask에 자동 상속되지만 SLF4J MDC와는 별도 bridge�
 context 전파를 자동으로 해주는 것과 코드의 간결성을 집중적으로 보여준다.
 webflux 는 원래 코드가 너무 복잡해지는 것이 문제였으나 coroutine 을 도입하면 훨씬 간결하게 쓸 수 있다.
 context 전파가 자동으로 어떻게 되는지도 원리를 소개해준다.
+
+# 36-1.
+가상 스레드 위에서 동시 호출을 구현하는 세 가지 최종 선택지를 비교한다.
+- VT + Coroutine (VT dispatcher)
+- VT + CompletableFuture (VT executor)
+- VT + StructuredTaskScope (JVM preview)
+
+작업 표현, 구조적 동시성, 컨텍스트 전파, API 상태, 적합한 도입 상황을 같은 표에서 보여준다.
+
+# 36-2.
+"이제 Java + Spring이 아니라 Kotlin + Spring"이라는 관점 전환을 보여준다.
+JetBrains와 Spring의 전략적 파트너십, Spring Boot 4 / Framework 7의 Kotlin 2.2 baseline, JSpecify null-safety, coroutine context 자동 전파를 소개한다.
+Spring MVC 네이티브 coroutine과 Virtual Thread dispatcher는 2026 탐색 로드맵이며 확정 기능이 아님을 구분한다.
 
 # 37.
 최종 결론을 보여준다.

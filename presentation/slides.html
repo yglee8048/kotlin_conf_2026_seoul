@@ -130,6 +130,28 @@
     padding: 16px 22px; font-size: 19px; line-height: 1.55; border-radius: 0 12px 12px 0; }
   .callout b { color: #fff; }
 
+  /* 구조적 동시성 작업 트리 */
+  .scope-tree { display: flex; flex-direction: column; align-items: center; gap: 0; }
+  .scope-parent { min-width: 390px; padding: 14px 24px; text-align: center; background: rgba(127,82,255,.13);
+    border: 1px solid rgba(127,82,255,.55); border-radius: 13px; }
+  .scope-parent strong { display: block; font-size: 19px; }
+  .scope-parent span { color: var(--muted); font-size: 14px; }
+  .scope-stem { width: 2px; height: 22px; background: #594873; }
+  .scope-children { position: relative; width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
+    padding-top: 22px; }
+  .scope-children::before { content: ""; position: absolute; top: 0; left: 16.7%; right: 16.7%;
+    border-top: 2px solid #594873; }
+  .scope-child { position: relative; min-height: 94px; padding: 14px 18px; text-align: center; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 13px; }
+  .scope-child::before { content: ""; position: absolute; left: 50%; top: -22px; height: 22px;
+    border-left: 2px solid #594873; }
+  .scope-child strong { display: block; font: 700 14px/1.4 var(--mono); color: #D8CCF7; }
+  .scope-child span { display: block; margin-top: 5px; color: var(--muted); font-size: 14px; line-height: 1.4; }
+  .scope-rules { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .scope-rule { padding: 12px 16px; background: #130E1C; border: 1px solid var(--line); border-radius: 11px;
+    font-size: 14px; line-height: 1.45; color: var(--muted); }
+  .scope-rule b { display: block; margin-bottom: 3px; color: var(--text); font-size: 15px; }
+
   /* 막대 차트 */
   .bars { display: flex; flex-direction: column; gap: 20px; }
   .bar-row { display: grid; grid-template-columns: 120px 1fr 110px; align-items: center; gap: 16px; }
@@ -983,36 +1005,11 @@ logTaskExecutor         : core <span class="n">5</span>  / queue <span class="n"
   </div>
 </section>
 
-<!-- ============ 17a-0. STEP 5 — 첫 시도 (dispatcher 없이) ============ -->
+<!-- ============ 17a. STEP 5 — Coroutine + Dispatchers.IO ============ -->
 <section class="slide">
   <span class="kicker">Step 5 · Coroutine</span>
   <h2 class="title">코루틴을 도입해보자</h2>
-  <p class="sub">launch 로 던지고 async 로 병렬 — 바뀐 파일은 서비스 하나, 시그니처는 STEP 1 그대로</p>
-  <div class="body" style="justify-content:center; gap:12px;">
-    <pre class="code xs"><span class="k">val</span> accounts = coreBankAdapter.getAccounts(userId)      <span class="c">// 여긴 그대로 (의존 관계)</span>
-
-<span class="k">val</span> (homeCardInfos, openBankBalances) = <span class="f">runBlocking</span> {   <span class="c">// 코루틴 시작!</span>
-    <span class="f">launch</span> { userLogRepository.saveEvent(userId, UserEvent.GET_HOME) }
-    <span class="k">val</span> homeCardInfoDeferred  = <span class="f">async</span> { homeItemInfoRepository.getHomeItemInfos(accountIds) }
-    <span class="k">val</span> openBankBalanceDeferred = <span class="f">async</span> { openBankingAdapter.getBalances(openBankAccountIds) }
-    homeCardInfoDeferred.await() <span class="k">to</span> openBankBalanceDeferred.await()
-}
-<span class="k">return</span> accounts.map { <span class="c">/* 조립 — STEP 1과 같은 자리 */</span> }</pre>
-    <pre class="log sm"><span class="c" style="font-style:normal; color:#5C5372;">### 1.73s — v1 순차와 똑같다?! 전부 톰캣 스레드 하나에서 차례로 실행됐다</span>
-<span class="lp">P[http-nio-8080-exec-5]</span> [getAccounts]      <span class="dim">start 01.360 → end 01.665</span>
-<span class="lp">P[http-nio-8080-exec-5]</span> [saveEvent]        <span class="dim">start 01.666 → end 02.371</span>   <span class="er">← launch 도</span>
-<span class="lp">P[http-nio-8080-exec-5]</span> [getHomeItemInfos] <span class="dim">start 02.372 → end 02.574</span>   <span class="er">← async 도</span>
-<span class="lp">P[http-nio-8080-exec-5]</span> [getBalances]      <span class="dim">start 02.575 → end 03.080</span>   <span class="er">← 순차!</span></pre>
-    <p class="note">async 는 부모의 dispatcher 를 상속하고, runBlocking 의 기본 dispatcher 는 <b style="color:var(--muted);">호출 스레드 하나짜리 이벤트 루프</b>다.<br>
-    blocking 호출이 그 스레드를 잡으니 다음 코루틴은 시작도 못 한다 — 코루틴은 동시성의 <b style="color:var(--muted);">구조</b>를 줄 뿐, <b style="color:var(--muted);">실행할 스레드는 dispatcher 가 준다</b></p>
-  </div>
-</section>
-
-<!-- ============ 17a. STEP 5 — Dispatchers.IO ============ -->
-<section class="slide">
-  <span class="kicker">Step 5 · Coroutine</span>
-  <h2 class="title">실행할 스레드를 주자 — <span class="grad-text">Dispatchers.IO</span></h2>
-  <p class="sub">blocking 작업용 공유 스레드 풀 — 코루틴들이 서로 다른 워커로 흩어진다</p>
+  <p class="sub">병렬화할 blocking 호출은 처음부터 <b style="color:var(--text);">Dispatchers.IO</b>에서 — launch 로 던지고 async 로 실행한다</p>
   <div class="body" style="justify-content:center;">
     <pre class="code sm"><span class="k">fun</span> <span class="f">getHomeItemsV5</span>(userId: UserId): List&lt;HomeItem&gt; {   <span class="c">// suspend 아님!</span>
     <span class="k">val</span> accounts = coreBankAdapter.getAccounts(userId)  <span class="c">// 그냥 blocking</span>
@@ -1029,7 +1026,7 @@ logTaskExecutor         : core <span class="n">5</span>  / queue <span class="n"
 
     <span class="k">return</span> accounts.map { <span class="c">/* 조립 — STEP 1과 같은 자리로 돌아왔다 */</span> }
 }</pre>
-    <p class="note" style="margin-top:14px;">자식들이 <b style="color:var(--muted);">DefaultDispatcher-worker-N</b> 으로 흩어져 세 작업이 동시에 돈다. 컨트롤러도, 반환 타입도, 호출자도 그대로 —<br>이제 병렬이다. 그런데 응답 시간을 재보면...</p>
+    <p class="note" style="margin-top:14px;">자식들이 <b style="color:var(--muted);">DefaultDispatcher-worker-N</b> 으로 흩어져 세 작업이 동시에 돈다. 컨트롤러도, 반환 타입도, 호출자도 그대로 —<br>Future의 콜백 없이 마지막 조립도 원래 자리로 돌아왔다. 그런데 응답 시간을 재보면...</p>
   </div>
 </section>
 
@@ -1062,7 +1059,36 @@ logTaskExecutor         : core <span class="n">5</span>  / queue <span class="n"
   </div>
 </section>
 
-<!-- ============ 17c. 부모를 갈아탄다 ============ -->
+<!-- ============ 17c. 구조적 동시성의 작업 트리 ============ -->
+<section class="slide">
+  <span class="kicker">Step 5 · Structured Concurrency</span>
+  <h2 class="title">구조적 동시성: 작업도 <span class="grad-text">수명을 물려받는다</span></h2>
+  <p class="sub">스코프가 부모가 되고, launch·async 로 시작한 작업은 그 안에서 태어난 자식이 된다</p>
+  <div class="body" style="justify-content:center; gap:16px;">
+    <div class="scope-tree">
+      <div class="scope-parent">
+        <strong>runBlocking · 요청 스코프</strong>
+        <span>블록을 나가기 전에 모든 자식의 종료를 확인한다</span>
+      </div>
+      <div class="scope-stem"></div>
+      <div class="scope-children">
+        <div class="scope-child"><strong>launch { saveEvent() }</strong><span>응답에는 안 쓰지만<br>여전히 요청의 자식</span></div>
+        <div class="scope-child"><strong>async { getHomeItems() }</strong><span>응답 재료를 만드는<br>병렬 조회</span></div>
+        <div class="scope-child"><strong>async { getBalances() }</strong><span>응답 재료를 만드는<br>병렬 조회</span></div>
+      </div>
+    </div>
+    <div class="scope-rules">
+      <div class="scope-rule"><b>정상 종료</b>모든 자식이 끝나야 부모도 끝난다</div>
+      <div class="scope-rule"><b>자식 실패</b>실패를 부모에 알리고 형제를 취소한다</div>
+      <div class="scope-rule"><b>부모 취소</b>살아 있는 모든 자식에게 취소가 전파된다</div>
+    </div>
+    <div class="callout" style="font-size:17px; padding:13px 20px;">
+      작업의 생명주기가 <b>코드 블록의 경계</b>와 맞물린다 — 응답보다 오래 살아야 한다면, 이 요청 스코프의 자식으로 만들면 안 된다.
+    </div>
+  </div>
+</section>
+
+<!-- ============ 17d. 부모를 갈아탄다 ============ -->
 <section class="slide">
   <span class="kicker">Step 5 · Coroutine</span>
   <h2 class="title">응답보다 오래 살 작업은 부모를 갈아탄다</h2>
@@ -1084,7 +1110,7 @@ logTaskExecutor         : core <span class="n">5</span>  / queue <span class="n"
   </div>
 </section>
 
-<!-- ============ 17d. runInterruptible ============ -->
+<!-- ============ 17e. runInterruptible ============ -->
 <section class="slide">
   <span class="kicker">Step 5 · Coroutine</span>
   <h2 class="title">빠른 취소까지 얻으려면 — <span class="grad-text">runInterruptible</span></h2>
@@ -1108,7 +1134,7 @@ logTaskExecutor         : core <span class="n">5</span>  / queue <span class="n"
   </div>
 </section>
 
-<!-- ============ 17e. 실전의 취소 — 인터럽트 실측 ============ -->
+<!-- ============ 17f. 실전의 취소 — 인터럽트 실측 ============ -->
 <section class="slide">
   <span class="kicker">Step 5 · 솔직한 이야기</span>
   <h2 class="title">실전의 blocking 은 인터럽트로 끊길까?</h2>
@@ -1534,11 +1560,59 @@ applicationCoroutineScope.<span class="f">launch</span>(
   </div>
 </section>
 
+<!-- ============ 24b. STEP 8 — STEP 1 코드 그대로 ============ -->
+<section class="slide">
+  <span class="kicker">Step 8 · Virtual Thread</span>
+  <h2 class="title">다시, STEP 1 코드로 돌아가자</h2>
+  <p class="sub">가상 스레드에서 돌릴 코드다 — STEP 1에서 봤던 <b style="color:var(--text);">그대로</b>, 고칠 곳을 찾지 말고 보시라</p>
+  <div class="body" style="justify-content:center;">
+    <div class="cols">
+      <div class="col">
+        <pre class="code xs">@RestController
+<span class="k">class</span> HomeItemController(<span class="k">private val</span> homeItemService: HomeItemService) {
+    <span class="a">@GetMapping</span>(<span class="s">"/api/v1/home/items"</span>)
+    <span class="k">fun</span> <span class="f">getHomeItems</span>(userId: UserId): List&lt;HomeItem&gt; =
+        homeItemService.getHomeItems(userId)
+}</pre>
+        <pre class="code xs"><span class="k">fun</span> <span class="f">getHomeItems</span>(userId: UserId): List&lt;HomeItem&gt; {
+    <span class="c">// 1. 코어뱅킹에서 계좌 목록 조회 (외부 서버 호출)</span>
+    <span class="k">val</span> accounts = coreBankAdapter.getAccounts(userId)
+    <span class="k">if</span> (accounts.isEmpty()) <span class="k">return</span> emptyList()
+
+    <span class="c">// 2. 부가정보 DB 에서 계좌 별칭·색상·아이콘 조회</span>
+    <span class="k">val</span> accountIds = accounts.map { it.accountId }
+    <span class="k">val</span> homeItemInfos = homeItemInfoRepository
+        .getHomeItemInfos(accountIds).associateBy { it.accountId }</pre>
+      </div>
+      <div class="col">
+        <pre class="code xs">    <span class="c">// 3. 오픈뱅킹 서버에서 잔액 조회 (외부 서버 호출)</span>
+    <span class="k">val</span> openBankIds = accounts.filter { it.isOpenBank() }.map { it.accountId }
+    <span class="k">val</span> openBankBalances = openBankingAdapter
+        .getBalances(openBankIds).associateBy { it.accountId }
+
+    <span class="c">// 4. 유저 활동 DB 에 접속 기록 적재</span>
+    userLogRepository.saveEvent(userId, UserEvent.GET_HOME)
+
+    <span class="c">// 5. 응답 조립</span>
+    <span class="k">return</span> accounts.map { account ->
+        HomeItem(
+            accountId = account.accountId,
+            balance   = account.balanceOrOpenBank(openBankBalances),
+            alias     = homeItemInfos[account.accountId]?.alias ?: 기본값,
+            ...
+        )
+    }
+}</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ============ 24. STEP 8 VT 도입 ============ -->
 <section class="slide">
   <span class="kicker">Step 8 · Virtual Thread</span>
   <h2 class="title">virtual thread 도입하기</h2>
-  <p class="sub">비즈니스 코드는 <b style="color:var(--text);">한 글자도</b> 바뀌지 않는다 — 설정만 켜고 STEP 1 코드를 그대로 다시 쓴다</p>
+  <p class="sub">방금 그 코드는 <b style="color:var(--text);">한 글자도</b> 손대지 않는다 — 바꾸는 건 yaml 네 줄이 전부다</p>
   <div class="body" style="justify-content:center; gap:16px;">
     <pre class="code sm"><span class="c"># application-vt.yaml — 이게 전부다</span>
 <span class="t">spring</span>:
@@ -1595,11 +1669,35 @@ applicationCoroutineScope.<span class="f">launch</span>(
   </div>
 </section>
 
+<!-- ============ 26b. STEP 9 — STEP 6 코드 그대로 ============ -->
+<section class="slide">
+  <span class="kicker">Step 9 · VT + Coroutine</span>
+  <h2 class="title">이번엔 STEP 6 코드를 그대로 올려보자</h2>
+  <p class="sub">vt 프로파일에서 다시 돌린다 — 고친 곳은 <b style="color:var(--text);">한 군데도 없고</b>, 병렬을 만드는 건 여전히 이 세 줄이다</p>
+  <div class="body" style="justify-content:center; gap:18px;">
+    <pre class="code sm"><span class="k">suspend fun</span> <span class="f">getHomeItemsV6</span>(...): List&lt;HomeItem&gt; = <span class="f">coroutineScope</span> {
+    <span class="k">val</span> accounts = coreBankAdapter.getAccounts(userId)   <span class="c">// 진입 스레드에서 그대로 blocking</span>
+
+    applicationCoroutineScope.<span class="f">launch</span> { <span class="ok">blockingIo</span> { userLogRepository.saveEvent(...) } }
+
+    <span class="k">val</span> homeCardInfoDeferred   = <span class="f">async</span> { <span class="ok">blockingIo</span> { homeItemInfoRepository.getHomeItemInfos(...) } }
+    <span class="k">val</span> openBankBalanceDeferred = <span class="f">async</span> { <span class="ok">blockingIo</span> { openBankingAdapter.getBalances(...) } }
+
+    homeCardInfoDeferred.<span class="f">await</span>(); openBankBalanceDeferred.<span class="f">await</span>()
+    ...
+}</pre>
+    <div class="callout" style="font-size:16.5px; padding-top:12px; padding-bottom:12px;">
+      <b>고친 줄: 0</b> — 톰캣이 가상 스레드로 바뀐 것을 이 코드는 모른다.<br>
+      <span style="color:var(--muted); font-size:14.5px;">단 <b style="color:#7E9CD8;">blockingIo</b> 안쪽은 여전히 <b style="color:var(--muted);">Dispatchers.IO</b> — 플랫폼 스레드다. 다음 장 로그에서 <b style="color:var(--muted);">P[tDispatcher-worker-N]</b> 으로 찍히는 자리가 여기다.</span>
+    </div>
+  </div>
+</section>
+
 <!-- ============ 26. STEP 9: VT + Coroutine ============ -->
 <section class="slide">
   <span class="kicker">Step 9 · VT + Coroutine</span>
   <h2 class="title">그럼 코루틴은 이제 필요 없나?</h2>
-  <p class="sub">vt 프로파일에서 STEP 5·6 코드를 <b style="color:var(--text);">그대로</b> 다시 돌려본다 — 새 코드 없음</p>
+  <p class="sub">방금 그 코드를 vt 프로파일에서 돌린 결과 — 그리고 가상 스레드가 <b style="color:var(--text);">주지 않는 것</b>들</p>
   <div class="body">
     <div class="cols">
       <div class="col">
@@ -2027,6 +2125,142 @@ StructuredTaskScope.<span class="f">open</span>(...).use { scope ->
       <div class="card" style="flex:1;"><h4>Flow 로 스트리밍까지</h4>
         <p>SSE·WebSocket 같은 long-lived response 도<br>긴 Flux operator chain 대신 <b style="color:var(--text);">Flow</b> 로 표현할 수 있다.</p></div>
     </div>
+  </div>
+</section>
+
+<!-- ============ 37b. 번외: CompletableFuture + VT executor ============ -->
+<section class="slide">
+  <span class="kicker">잠깐 · 번외</span>
+  <h2 class="title">코루틴 없이도 — <span class="grad-text">CompletableFuture + 가상 스레드</span></h2>
+  <p class="sub">STEP 8의 yaml 은 <b style="color:var(--text);">직접 만든 executor 를 안 바꿔준다</b> — 그럼 그 executor 를 가상 스레드로 선언하면 된다</p>
+  <div class="body" style="justify-content:center;">
+    <div class="cols" style="gap:22px;">
+      <div class="col">
+        <pre class="code xs"><span class="c">// AsyncConfig — STEP 2의 ThreadPoolTaskExecutor 자리를 대체</span>
+<span class="a">@Bean</span>(OPEN_BANKING_TASK_EXECUTOR, destroyMethod = <span class="s">"close"</span>)
+<span class="k">fun</span> <span class="f">openBankingTaskExecutor</span>(): ExecutorService =
+    Executors.<span class="f">newVirtualThreadPerTaskExecutor</span>()   <span class="c">// 작업마다 VT 하나</span></pre>
+        <pre class="code xs"><span class="c">// 호출부는 STEP 2 그대로 — 타입이 Executor 라서</span>
+<span class="k">val</span> openBankBalanceFuture = CompletableFuture.supplyAsync(
+    { openBankingAdapter.getBalances(openBankAccountIds) },
+    <span class="ok">openBankingTaskExecutor</span>,   <span class="c">// ← 도는 스레드만 P → V</span>
+)</pre>
+        <p class="note">스레드 이름을 남기려면 <b style="color:var(--muted);">newThreadPerTaskExecutor(ofVirtual().name(…))</b> — 데모 코드가 그 방식이다.
+        Spring 쪽은 <b style="color:var(--muted);">SimpleAsyncTaskExecutor.setVirtualThreads(true)</b>.</p>
+      </div>
+      <div class="col">
+        <pre class="log sm"><span class="c" style="font-style:normal; color:#5C5372;">### 같은 STEP 2 코드 — 로그 첫 글자만 바뀐다</span>
+<span class="lp">P[tomcat-handler-2]</span> [getAccounts] start
+<span class="lv">V[open-banking-1]</span> [getBalances] start        <span class="ok">← P 였던 자리</span>
+<span class="lv">V[home-info-1]</span> [getHomeItemInfos] start</pre>
+        <div class="card" style="padding:14px 18px;"><h4>얻는 것 — 코루틴 없이도</h4>
+          <p>풀 크기 튜닝 없이 동시 호출이 늘어난다.<br>STEP 2~4 코드베이스도 <b style="color:var(--text);">executor 정의만</b> 갈면 된다.</p></div>
+        <div class="card" style="padding:14px 18px;"><h4>그대로 남는 것</h4>
+          <p><code style="font-family:var(--mono); font-size:14px;">thenCompose</code> / <code style="font-family:var(--mono); font-size:14px;">join</code> 조립, 구조적 동시성 없음,<br>예외는 <b style="color:var(--text);">CompletionException</b> 으로 감싸짐.</p></div>
+      </div>
+    </div>
+    <div class="callout" style="font-size:17px; margin-top:16px;">가상 스레드는 <b>실행 방식</b>만 갈아끼운다 — 그런데 <code style="font-family:var(--mono); font-size:15px; color:var(--korange);">core 30 / AbortPolicy</code> 로 걸어둔 <b>동시 호출 상한</b>도 같이 사라졌다.</div>
+  </div>
+</section>
+
+<!-- ============ 37c. 최종 비교: VT 위의 세 선택지 ============ -->
+<section class="slide">
+  <span class="kicker">Final Comparison</span>
+  <h2 class="title">최종 비교 — VT 위에 <span class="grad-text">무엇을 얹을까?</span></h2>
+  <p class="sub">실행은 모두 가상 스레드다. 차이는 <b style="color:var(--text);">동시 작업의 관계를 어떻게 표현하고 관리하느냐</b>에 있다</p>
+  <div class="body" style="justify-content:center; gap:16px;">
+    <table class="tbl sm" style="table-layout:fixed; font-size:14.5px;">
+      <colgroup>
+        <col style="width:13%;">
+        <col style="width:29%;">
+        <col style="width:29%;">
+        <col style="width:29%;">
+      </colgroup>
+      <tr>
+        <th>기준</th>
+        <th>VT + Coroutine<br><span style="color:#7CE7A9; text-transform:none; letter-spacing:0;">VT dispatcher</span></th>
+        <th>VT + CompletableFuture<br><span style="color:#FFD066; text-transform:none; letter-spacing:0;">VT executor</span></th>
+        <th>VT + StructuredTaskScope<br><span style="color:#FF7B72; text-transform:none; letter-spacing:0;">JVM preview</span></th>
+      </tr>
+      <tr>
+        <td>작업 표현</td>
+        <td><code style="font-family:var(--mono);">async / await</code><br>순차형 코드</td>
+        <td><code style="font-family:var(--mono);">thenCombine / handle</code><br>콜백·조합 체인</td>
+        <td><code style="font-family:var(--mono);">fork / join / get</code><br>blocking 형태 유지</td>
+      </tr>
+      <tr>
+        <td>구조적 동시성</td>
+        <td class="good">있음 — 수명·실패·취소 전파</td>
+        <td class="bad">없음 — 직접 묶고 취소</td>
+        <td class="good">있음 — 수명·실패·취소 전파</td>
+      </tr>
+      <tr>
+        <td>컨텍스트</td>
+        <td class="good">accessor 설정 후 자동 복원</td>
+        <td class="warn2">task마다 snapshot·wrapper</td>
+        <td class="warn2">ScopedValue 상속<br>MDC는 bridge 필요</td>
+      </tr>
+      <tr>
+        <td>API 상태</td>
+        <td class="good">정식 — 프로덕션 사용</td>
+        <td class="good">정식 — 프로덕션 사용</td>
+        <td class="bad">preview — 플래그 필요</td>
+      </tr>
+      <tr>
+        <td>잘 맞는 경우</td>
+        <td>Kotlin에서 작업 관계와<br>간결한 코드를 함께 원할 때</td>
+        <td>기존 Future 코드를<br>최소 변경으로 VT에 올릴 때</td>
+        <td>preview를 감수하고<br>JVM API만 쓰고 싶을 때</td>
+      </tr>
+    </table>
+    <div class="callout" style="font-size:16.5px; padding:12px 20px;">
+      셋 다 blocking 작업을 가상 스레드에서 실행할 뿐, <b>DB·외부 시스템의 용량은 늘리지 않는다.</b> 동시성 상한·timeout·과부하 제어는 어느 선택이든 별도다.
+    </div>
+  </div>
+</section>
+
+<!-- ============ 37d. Kotlin + Spring 전략적 정렬 ============ -->
+<section class="slide">
+  <span class="kicker">Spring × Kotlin</span>
+  <h2 class="title">이제 <span style="color:var(--faint);">Java + Spring</span>이 아니라 <span class="grad-text">Kotlin + Spring</span></h2>
+  <p class="sub">Java를 버린다는 뜻이 아니다 — Kotlin이 단순한 호환 언어를 넘어 <b style="color:var(--text);">Spring의 first-class backend target</b>이 되고 있다</p>
+  <div class="body" style="justify-content:center; gap:14px;">
+    <div class="card" style="display:flex; align-items:center; gap:20px; padding:14px 20px; border-color:rgba(127,82,255,.5);">
+      <span class="pill p1" style="flex:none;">2025.05</span>
+      <div>
+        <h4 style="margin-bottom:3px;">JetBrains × Spring 전략적 파트너십</h4>
+        <p>목표는 Kotlin이 Spring 백엔드에서 더 자연스럽고 강력한 선택이 되도록 <b style="color:var(--text);">프레임워크·언어·도구를 함께 맞추는 것</b>.</p>
+      </div>
+    </div>
+
+    <div class="cols" style="flex:none; gap:18px;">
+      <div class="card" style="flex:1; padding:16px 20px; border-color:rgba(124,231,169,.3);">
+        <h4 style="color:var(--good);">이미 들어온 변화 — Boot 4 / Framework 7</h4>
+        <div style="display:flex; flex-direction:column; gap:9px; margin-top:12px;">
+          <p><b style="color:var(--text);">Kotlin 2.2 baseline</b> — Spring 포트폴리오가 Kotlin 2 세대로</p>
+          <p><b style="color:var(--text);">JSpecify null-safety</b> — Spring·Reactor·Micrometer API가 Kotlin의 nullable/non-null 타입으로 보인다</p>
+          <p><b style="color:var(--text);">Coroutine context 자동 전파 지원</b> — suspend 함수의 observability·tracing 연결</p>
+          <p><b style="color:var(--text);">공식 가이드의 Kotlin 버전</b> — 주요 Spring 학습 경로도 Kotlin 코드로</p>
+        </div>
+      </div>
+      <div class="card" style="flex:1; padding:16px 20px; border-color:rgba(255,208,102,.32);">
+        <h4 style="color:var(--warn);">다음 연결점 — 2026 탐색 로드맵</h4>
+        <p style="margin-bottom:12px;"><span class="pill p2">검토 중 · 확정 아님</span></p>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <p><b style="color:var(--text);">Spring MVC 네이티브 coroutine</b><br>reactive bridge 없는 suspend 지원</p>
+          <p><b style="color:var(--text);">Virtual Thread dispatcher</b><br>지금 발표에서 직접 만든 연결을 프레임워크 쪽으로</p>
+          <p><b style="color:var(--text);">Kotlin 런타임·DSL 개선</b><br>reflection 효율, inline value class, Kotlin다운 logging·설정</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout" style="font-size:17px; padding:12px 20px;">
+      Spring 위에 Kotlin을 얹는 단계를 넘어, <b>Spring과 Kotlin이 서로의 backend 모델에 맞춰지는 중</b>이다.
+    </div>
+    <p class="note" style="font-size:11.5px; margin-top:-6px;">
+      Sources · <a href="https://spring.io/blog/2025/12/18/next-level-kotlin-support-in-spring-boot-4/" style="color:var(--faint);">Spring Blog — Next level Kotlin support in Spring Boot 4</a>
+      · <a href="https://blog.jetbrains.com/kotlin/2025/05/strategic-partnership-with-spring/" style="color:var(--faint);">JetBrains — Strategic Partnership With Spring</a>
+    </p>
   </div>
 </section>
 
