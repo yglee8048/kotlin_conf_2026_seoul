@@ -320,7 +320,8 @@
   .sched-boundary { display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 8px; color: var(--faint); }
   .sched-boundary .jni { padding: 6px 9px; border: 1px dashed #665178; border-radius: 8px;
-    font-family: var(--mono); font-size: 12px; color: #B9A1FF; background: #171021; }
+    font-family: var(--mono); font-size: 12px; color: #B9A1FF; background: #171021;
+    white-space: nowrap; padding-left: 6px; padding-right: 6px; }
   .sched-boundary small { font-size: 10px; text-align: center; line-height: 1.3; }
   .pause-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .pause-compare .side { display: grid; grid-template-columns: 130px 1fr; align-items: center;
@@ -399,8 +400,8 @@
           <li>Virtual Thread + Coroutine — 함께 쓰기</li>
         </ul>
       </li>
-      <li style="margin-top:8px;">번외: non-blocking 환경에서도 Coroutine 이 유효한 이유</li>
-      <li style="margin-top:8px;">Conclusion — 그래서 언제 무엇을 쓸까?</li>
+      <li style="margin-top:8px;">번외: StructuredTaskScope · non-blocking 환경의 Coroutine · 실전 팁</li>
+      <li style="margin-top:8px;">Conclusion — 최종 비교, 그래서 언제 무엇을 쓸까?</li>
     </ul>
   </div>
 </section>
@@ -919,13 +920,13 @@ logTaskExecutor         : core <span class="n">5</span>  / queue <span class="n"
       </div>
       <div class="card" style="flex:1;">
         <h4><span class="grad-text">구조적 동시성</span></h4>
-        <p>동시 작업의 <b style="color:var(--text);">부모-자식 관계가 문법</b>이 된다.<br>
+        <p>동시 작업의 <b style="color:var(--text);">부모-자식 관계가 코드 구조</b>가 된다.<br>
         실패하면 형제가 취소되고, 블록을 나오면<br>자식이 하나도 안 남아 있음이 보장된다.</p>
       </div>
     </div>
     <div class="callout" style="margin-top:30px;">
       STEP 2에서 코드가 답하지 못했던 질문들 — <b>“이 두 작업은 한 묶음인가? 하나가 실패하면? 묶음 전체의 timeout 은?”</b><br>
-      <span style="color:var(--muted); font-size:17px;">코루틴은 이 질문들에 라이브러리가 아니라 <b style="color:var(--text);">문법</b>으로 답한다</span>
+      <span style="color:var(--muted); font-size:17px;">코루틴은 언어의 suspend 추상화와 kotlinx.coroutines의 구조화 API로 <b style="color:var(--text);">작업 관계를 코드에 드러낸다</b></span>
     </div>
   </div>
 </section>
@@ -933,8 +934,8 @@ logTaskExecutor         : core <span class="n">5</span>  / queue <span class="n"
 <!-- ============ 16b. Coroutine 스케줄링 계층 ============ -->
 <section class="slide">
   <span class="kicker">Coroutine · Internals</span>
-  <h2 class="title">CPU 에서 <span class="grad-text">coroutine</span> 까지</h2>
-  <p class="sub">CoroutineDispatcher 가 많은 coroutine 을 소수의 platform worker 위에 배치한다</p>
+  <h2 class="title">실행 계층: <span class="grad-text">CPU ↔ coroutine</span></h2>
+  <p class="sub">coroutine 은 dispatcher 의 platform worker 에 매핑되고, worker 는 OS 가 CPU 에 스케줄링한다</p>
   <div class="body" style="justify-content:center; gap:24px;">
     <div class="sched-map">
       <div class="sched-cpu">
@@ -942,7 +943,7 @@ logTaskExecutor         : core <span class="n">5</span>  / queue <span class="n"
         <div class="caption">실제 연산</div>
       </div>
 
-      <div class="sched-arrow">→</div>
+      <div class="sched-arrow">↔</div>
 
       <div class="sched-zone">
         <div class="sched-zone-label">OS 영역</div>
@@ -950,7 +951,7 @@ logTaskExecutor         : core <span class="n">5</span>  / queue <span class="n"
           <strong>OS<br>스케줄러</strong>
           <small>kernel scheduler</small>
         </div>
-        <div class="sched-arrow">→</div>
+        <div class="sched-arrow">↔</div>
         <div class="sched-thread-cluster">
           <div class="sched-cluster-label">커널 스레드</div>
           <div class="sched-thread">kernel-1</div>
@@ -960,10 +961,10 @@ logTaskExecutor         : core <span class="n">5</span>  / queue <span class="n"
       </div>
 
       <div class="sched-boundary">
-        <div class="sched-arrow">→</div>
-        <div class="jni">JNI</div>
-        <small>native<br>boundary</small>
-        <div class="sched-arrow">→</div>
+        <div class="sched-arrow">↔</div>
+        <div class="jni">JVM / OS</div>
+        <small>runtime<br>boundary</small>
+        <div class="sched-arrow">↔</div>
       </div>
 
       <div class="sched-zone jvm">
@@ -972,14 +973,14 @@ logTaskExecutor         : core <span class="n">5</span>  / queue <span class="n"
           <strong>Coroutine<br>Dispatcher</strong>
           <small>Dispatchers.IO</small>
         </div>
-        <div class="sched-arrow">→</div>
+        <div class="sched-arrow">↔</div>
         <div class="sched-thread-cluster">
           <div class="sched-cluster-label">platform worker</div>
           <div class="sched-thread worker">worker-1</div>
           <div class="sched-thread worker">worker-2</div>
           <div class="sched-thread worker">worker-3</div>
         </div>
-        <div class="sched-arrow">→</div>
+        <div class="sched-arrow">↔</div>
         <div class="sched-coroutine-wrap">
           <div class="sched-cluster-label">coroutine</div>
           <div class="sched-coroutine-cluster">
@@ -1197,7 +1198,7 @@ logTaskExecutor         : core <span class="n">5</span>  / queue <span class="n"
 <section class="slide">
   <span class="kicker">Step 5 · Coroutine</span>
   <h2 class="title">뭐가 좋아진 걸까 — STEP 3과 비교</h2>
-  <p class="sub">공정한 비교다 — 둘 다 병렬이고, 둘 다 톰캣 스레드를 830ms 붙잡는다. 남는 차이는 <b style="color:var(--text);">코드 구조</b>뿐</p>
+  <p class="sub">둘 다 병렬이고 톰캣 점유도 같다 — 이제 <b style="color:var(--text);">코드 모양뿐 아니라 작업 수명·실패 의미론</b>을 비교한다</p>
   <div class="body">
     <div class="cols">
       <div class="col" style="flex:1.1;">
@@ -1205,10 +1206,10 @@ logTaskExecutor         : core <span class="n">5</span>  / queue <span class="n"
           <tr><th></th><th>STEP 3 (Future)</th><th>STEP 5 (Coroutine)</th></tr>
           <tr><td>응답 · 톰캣 점유</td><td style="color:var(--muted);">0.83s · 830ms</td><td style="color:var(--muted);">0.85s · 828ms — 같다</td></tr>
           <tr><td>병렬 구간 코드</td><td class="bad">supplyAsync + executor + join</td><td class="good">async + await</td></tr>
-          <tr><td>하위 시스템마다 executor</td><td class="bad">필요 — 크기·거부 정책 고민</td><td class="good">공유 가능 — 격리·상한은 별도</td></tr>
+          <tr><td>실행 자원 (데모 구성)</td><td class="warn2">전용 풀 3개</td><td class="good">공유 IO dispatcher</td></tr>
           <tr><td>실패 시 형제 취소</td><td class="bad">자동 아님</td><td class="good">구조화된 스코프가 취소</td></tr>
           <tr><td>예외</td><td class="bad">CompletionException</td><td class="good">원래 예외 그대로</td></tr>
-          <tr><td>작업 누수</td><td class="bad">join() 빼먹으면 샌다</td><td class="good">구조화된 스코프 안에서 방지</td></tr>
+          <tr><td>작업 수명</td><td class="bad">join 누락 시 방치된 작업 지속</td><td class="good">구조화된 스코프는 이탈 불가</td></tr>
         </table>
       </div>
       <div class="col" style="flex:1;">
@@ -1219,6 +1220,7 @@ logTaskExecutor         : core <span class="n">5</span>  / queue <span class="n"
 <span class="c" style="font-style:normal; color:#5C5372;">Coroutine (STEP 5)</span>
 <span class="lp">P[worker-3]</span> [getBalances] <span class="er">의도된 실패</span>
 <span class="lp">P[worker-1]</span> [getHomeItemInfos] <span class="ok">취소됨(인터럽트) ← 1ms 만에</span></pre>
+        <p class="note" style="font-size:13px; margin-top:-4px;">데모 어댑터는 sleep 기반이라 인터럽트에 즉시 반응한다 — 실제 드라이버는 앞 장 참고</p>
         <div class="card"><h4>이미 실패한 요청을 위해 일하지 않는다</h4>
           <p>형제가 취소되고 DB 커넥션도 일찍 놓는다.<br>응답도 0.52s → 0.37s.</p></div>
         <div class="card"><h4>스레드 효율은 아직 STEP 4에 진다</h4>
@@ -1283,9 +1285,10 @@ logTaskExecutor         : core <span class="n">5</span>  / queue <span class="n"
     <pre class="code sm"><span class="a">@GetMapping</span>(<span class="s">"/items"</span>)
 <span class="k">suspend fun</span> <span class="f">getHomeItems</span>(userId: UserId): List&lt;HomeItem&gt; =   <span class="c">// 컨트롤러는 suspend 한 단어</span>
     homeItemServiceV6.getHomeItemsV6(userId)</pre>
-    <pre class="log sm"><span class="lp">P[http-nio-8080-exec-2]</span> [v6] 진입                        <span class="dim">05.887</span>
-<span class="lp">P[http-nio-8080-exec-2]</span> [getAccounts] start              <span class="dim">05.888  ← 톰캣 스레드</span>
-<span class="lp">P[tDispatcher-worker-1]</span> <span class="mark">[v6] 반환 (진입과 다른 스레드다)</span>  <span class="ok">06.701  톰캣 점유 320ms</span></pre>
+    <pre class="log sm"><span class="lp">P[http-nio-8080-exec-2]</span> [v6] 진입                                  <span class="dim">05.887</span>
+<span class="lp">P[http-nio-8080-exec-2]</span> [getAccounts] start                        <span class="dim">05.888  ← 톰캣 스레드</span>
+<span class="lp">P[http-nio-8080-exec-2]</span> <span class="mark">[getAccounts] end → 첫 suspension</span>          <span class="ok">06.207  ← 여기서 톰캣 반납. 점유 320ms</span>
+<span class="lp">P[tDispatcher-worker-1]</span> [v6] 반환 (진입과 다른 스레드다)                 <span class="dim">06.701</span></pre>
     <p class="note">코어뱅킹 300ms 는 STEP 4와 같이 톰캣 스레드에서 실행 — 그 뒤 첫 suspension 에서 톰캣 스레드를 반납한다. 점유 조건을 같게 맞춰도 코드는 위에서 아래로 읽히고, <b style="color:var(--muted);">HTTP 응답 타입</b>은 STEP 1과 같다.</p>
   </div>
 </section>
@@ -1303,10 +1306,11 @@ logTaskExecutor         : core <span class="n">5</span>  / queue <span class="n"
       <tr><td>컨트롤러 반환 타입</td><td class="bad" style="font-family:var(--mono); font-size:14px;">DeferredResult&lt;List&lt;HomeItem&gt;&gt;</td><td class="good" style="font-family:var(--mono); font-size:14px;">List&lt;HomeItem&gt;</td></tr>
       <tr><td>구조적 동시성</td><td class="bad">없음 — 형제 취소·묶음 수명 표현 불가</td><td class="good">있음</td></tr>
       <tr><td>예외</td><td class="bad">CompletionException 으로 감싸짐</td><td class="good">원래 예외 그대로</td></tr>
-      <tr><td>하위 시스템마다 executor</td><td class="bad">필요 (3개)</td><td class="good">0개</td></tr>
+      <tr><td>실행 자원 (데모 구성)</td><td class="warn2">전용 풀 3개</td><td class="good">공유 IO dispatcher</td></tr>
     </table>
     <div class="callout">비동기가 되었는데 <b>반환 타입과 순차적인 코드 모양은 STEP 1과 같다.</b> 다만 suspend 호출 경계는 위로 전파된다 —<br>
-    <span style="color:var(--muted); font-size:17px;"><b style="color:var(--text);">"간결한 코드"와 "스레드 반납"은 서로 다른 축</b>이고, 코루틴은 둘 다 가져간다</span></div>
+    <span style="color:var(--muted); font-size:17px;"><b style="color:var(--text);">"간결한 코드"와 "스레드 반납"은 서로 다른 축</b>이고, 코루틴은 둘 다 가져간다.<br>
+    하위 시스템 격리·상한은 Future 든 Coroutine 이든 별도 설계다.</span></div>
   </div>
 </section>
 
@@ -1441,8 +1445,8 @@ applicationCoroutineScope.<span class="f">launch</span>(
 <!-- ============ 23c. Virtual Thread 스케줄링 계층 ============ -->
 <section class="slide">
   <span class="kicker">Virtual Thread · Internals</span>
-  <h2 class="title">CPU 에서 <span class="grad-text">virtual thread</span> 까지</h2>
-  <p class="sub">OS 는 커널 스레드를, JVM 은 가상 스레드를 각자 스케줄링한다</p>
+  <h2 class="title">실행 계층: <span class="grad-text">CPU ↔ virtual thread</span></h2>
+  <p class="sub">virtual thread 는 carrier 에 매핑되고, carrier 는 OS 가 CPU 에 스케줄링한다</p>
   <div class="body" style="justify-content:center; gap:24px;">
     <div class="sched-map">
       <div class="sched-cpu">
@@ -1450,7 +1454,7 @@ applicationCoroutineScope.<span class="f">launch</span>(
         <div class="caption">실제 연산</div>
       </div>
 
-      <div class="sched-arrow">→</div>
+      <div class="sched-arrow">↔</div>
 
       <div class="sched-zone">
         <div class="sched-zone-label">OS 영역</div>
@@ -1458,7 +1462,7 @@ applicationCoroutineScope.<span class="f">launch</span>(
           <strong>OS<br>스케줄러</strong>
           <small>kernel scheduler</small>
         </div>
-        <div class="sched-arrow">→</div>
+        <div class="sched-arrow">↔</div>
         <div class="sched-thread-cluster">
           <div class="sched-cluster-label">커널 스레드</div>
           <div class="sched-thread">kernel-1</div>
@@ -1468,10 +1472,10 @@ applicationCoroutineScope.<span class="f">launch</span>(
       </div>
 
       <div class="sched-boundary">
-        <div class="sched-arrow">→</div>
-        <div class="jni">JNI</div>
-        <small>native<br>boundary</small>
-        <div class="sched-arrow">→</div>
+        <div class="sched-arrow">↔</div>
+        <div class="jni">JVM / OS</div>
+        <small>runtime<br>boundary</small>
+        <div class="sched-arrow">↔</div>
       </div>
 
       <div class="sched-zone jvm">
@@ -1480,14 +1484,14 @@ applicationCoroutineScope.<span class="f">launch</span>(
           <strong>JVM<br>스케줄러</strong>
           <small>ForkJoinPool</small>
         </div>
-        <div class="sched-arrow">→</div>
+        <div class="sched-arrow">↔</div>
         <div class="sched-thread-cluster">
           <div class="sched-cluster-label">carrier thread</div>
           <div class="sched-thread carrier">carrier-1</div>
           <div class="sched-thread carrier">carrier-2</div>
           <div class="sched-thread carrier">carrier-3</div>
         </div>
-        <div class="sched-arrow">→</div>
+        <div class="sched-arrow">↔</div>
         <div class="sched-virtual-wrap">
           <div class="sched-cluster-label">virtual thread</div>
           <div class="sched-virtual-cluster">
@@ -1619,16 +1623,16 @@ applicationCoroutineScope.<span class="f">launch</span>(
   <span class="t">threads</span>:
     <span class="t">virtual</span>:
       <span class="t">enabled</span>: <span class="k">true</span></pre>
-    <pre class="log sm"><span class="c" style="font-style:normal; color:#5C5372;">### 같은 /api/v1 — 바뀐 것은 로그 첫 글자 P → V 와 스레드 이름뿐. 응답 시간은 그대로 1.9s</span>
+    <pre class="log sm"><span class="c" style="font-style:normal; color:#5C5372;">### 같은 /api/v1 — 바뀐 것은 로그 첫 글자 P → V 와 스레드 이름뿐. 응답 시간은 그대로 1.84s</span>
 <span class="lv">V[tomcat-handler-0    ]</span> [getAccounts] start
 <span class="lv">V[tomcat-handler-0    ]</span> [getHomeItemInfos] start
 <span class="lv">V[tomcat-handler-0    ]</span> [getBalances] start
 <span class="lv">V[tomcat-handler-0    ]</span> [saveEvent] start</pre>
     <div class="cols" style="flex:none;">
       <div class="card" style="flex:1;"><h4>지연은 안 줄어든다</h4>
-        <p>1.7초 걸리는 I/O 는 여전히 1.7초.<br>바뀐 건 <b style="color:var(--text);">그동안 무엇을 붙잡고 있느냐</b>다.</p></div>
+        <p>I/O 대기 1.7초는 여전히 1.7초.<br>바뀐 건 <b style="color:var(--text);">그동안 무엇을 붙잡고 있느냐</b>다.</p></div>
       <div class="card" style="flex:1;"><h4>요청 스레드 풀 크기 제약이 사라진다</h4>
-        <p>초당 1000 요청 × 1.7s = 동시 1700개 요청.<br>가상 스레드에선 1700개가 <b style="color:var(--text);">그냥 존재</b>한다.</p></div>
+        <p>초당 1000 요청 × 1.84s ≈ 동시 1,840개 요청.<br>가상 스레드에선 1,840개가 <b style="color:var(--text);">그냥 존재</b>한다.</p></div>
       <div class="card" style="flex:1;"><h4 style="color:var(--warn);">Boot 가 바꿔주는 건 자기 것뿐</h4>
         <p>직접 만든 ThreadPoolTaskExecutor 는 그대로 P.<br>“켰는데 왜 그대로죠?”의 90%가 이것.</p></div>
     </div>
@@ -1708,10 +1712,11 @@ applicationCoroutineScope.<span class="f">launch</span>(
           <tr><td>부모-자식 관계</td><td class="bad">X</td></tr>
           <tr><td>실패 시 형제 취소</td><td class="bad">X</td></tr>
           <tr><td>묶음 timeout</td><td class="bad">X</td></tr>
-          <tr><td>컨텍스트 전파</td><td class="bad">X</td></tr>
+          <tr><td>자식 작업으로 컨텍스트 전달</td><td class="bad">X — 별도 bridge 필요</td></tr>
         </table>
-        <div class="callout" style="font-size:17px;">v1 은 VT 위에서도 <b>순차 실행 1.9초</b>다.<br>
-        동시에 호출하려면 여전히 무언가가 필요하고,<br>그 순간 STEP 2의 질문들이 전부 되살아난다.</div>
+        <div class="callout" style="font-size:17px;">v1 은 VT 위에서도 <b>순차 실행 1.84초</b>다.<br>
+        동시에 호출하려면 여전히 무언가가 필요하고,<br>그 순간 STEP 2의 질문들이 전부 되살아난다.<br>
+        <span style="color:var(--muted); font-size:14.5px;">(같은 요청 VT 안의 ThreadLocal 은 유지된다 — fan-out 하면 별도 전파)</span></div>
       </div>
       <div class="col">
         <pre class="log sm"><span class="c" style="font-style:normal; color:#5C5372;">### vt 프로파일 + v6 (suspend) — 0.86s</span>
@@ -1878,7 +1883,7 @@ blockingIo(<span class="ok">virtualThreadDispatcher</span>) { ... }   <span clas
 <span class="dim">37.481</span>  [guarded] 상한(3) 통과  ┐ <span class="wa">+506ms</span></pre>
       </div>
       <div class="col">
-        <pre class="log sm"><span class="c" style="font-style:normal; color:#5C5372;">### ?timeoutMillis=400 → 사슬이 끝까지</span>
+        <pre class="log sm"><span class="c" style="font-style:normal; color:#5C5372;">### ?timeoutMillis=400 → 사슬이 끝까지 (sleep 기반 데모)</span>
 <span class="lv">V[vt-dispatch-4]</span> [getHomeItemInfos] <span class="ok">취소됨(인터럽트)</span>
 <span class="lv">V[vt-dispatch-5]</span> [getBalances] <span class="ok">취소됨(인터럽트)</span>
 <span class="er">TimeoutCancellationException</span> <span class="dim">— end 는 하나도 없다</span>
@@ -1983,22 +1988,22 @@ StructuredTaskScope.<span class="f">open</span>(...).use { scope ->
       <tr><td>상태</td><td class="good">정식 — 오늘 프로덕션에</td><td class="bad">preview (--enable-preview 필요)</td></tr>
       <tr><td>컨트롤러 통합</td><td class="good">suspend — 코어뱅킹 이후 요청 스레드 반납</td><td class="warn2">join() 동안 요청 VT 수명 유지 — carrier 는 반납</td></tr>
       <tr><td>컨텍스트 전파</td><td class="good">accessor 로 자동 (STEP 7)</td><td class="warn2">자동 아님 — snapshot.wrap 필요</td></tr>
-      <tr><td>점진 도입</td><td class="good">runBlocking 하나로 시작 → 위로 확장</td><td class="warn2">가상 스레드 켜져 있어야 성립</td></tr>
+      <tr><td>점진 도입</td><td class="good">runBlocking 하나로 시작 → 위로 확장</td><td class="warn2">플랫폼에서도 동작 · 확장성은 요청 VT 전제</td></tr>
       <tr><td>스트림</td><td class="good">Flow, Channel</td><td class="bad">대응물 없음</td></tr>
     </table>
     <pre class="log sm"><span class="c" style="font-style:normal; color:#5C5372;">### snapshot.wrap 없이 실행하면</span>
 <span class="lv">V[tomcat-handler-7]</span> [v12] 진입
 <span class="lv">V[virtual-72      ]</span> <span class="er">[trace=none]</span> [getHomeItemInfos] start  <span class="er">ctx=없음</span>  <span class="dim">← accessor가 자동 호출되지는 않는다</span>
 <span class="lv">V[tomcat-handler-7]</span> [v12] 반환 <span class="wa">(같은 VT 의 수명 830ms — carrier 독점 아님)</span></pre>
-    <div class="callout">VT 가 “값싼 실행”을, STS 가 “구조화”를 가져갔다. 다만 STS 는 여전히 preview — <b>정식 API 로 blocking MVC 에 적용</b>하려면 오늘은 코루틴이 안전한 선택이다</div>
+    <div class="callout">VT 가 “값싼 실행”을, STS 가 “구조화”를 가져갔다. STS 는 플랫폼 스레드에서도 동작하지만 요청 스레드를 붙잡는다. 그리고 여전히 preview — <b>오늘 프로덕션에 적용할 안정된 구조화 선택지</b>로는 코루틴이 앞선다</div>
   </div>
 </section>
 
 <!-- ============ 34. 팁: @Transactional ============ -->
 <section class="slide">
   <span class="kicker">실전 팁 ①</span>
-  <h2 class="title">비동기 + @Transactional 은 위험하다</h2>
-  <p class="sub">트랜잭션도 ThreadLocal 이다 — 이번엔 로그가 아니라 <b style="color:var(--bad);">데이터가 깨진다</b></p>
+  <h2 class="title">Imperative 트랜잭션 + 비동기는 위험하다</h2>
+  <p class="sub">JDBC + PlatformTransactionManager 는 thread-bound — 이번엔 로그가 아니라 <b style="color:var(--bad);">데이터가 깨진다</b></p>
   <div class="body" style="justify-content:center; gap:14px;">
     <div class="cols" style="flex:none; gap:20px;">
       <div class="col">
@@ -2018,13 +2023,13 @@ StructuredTaskScope.<span class="f">open</span>(...).use { scope ->
       <div class="col">
         <div class="card"><h4>적립은 롤백됐는데 이력만 남았다</h4>
           <p>같은 원자성 단위에 있어야 할 작업을 비동기로 빼면<br>그 순간 원자성이 깨진다. 부하 상황에서만 재현되는<br>읽기 경합·락 대기 변종은 더 고약하다.</p></div>
-        <div class="card"><h4>코루틴에서는 더 위험하다</h4>
+        <div class="card"><h4>코루틴에서는 신호가 더 약하다</h4>
           <p><span style="font-family:var(--mono); font-size:13.5px;">withContext(Dispatchers.IO) { insertHistory() }</span><br>
           @Async 같은 시각적 신호조차 없이 스레드가 바뀐다.<br>
-          <b style="color:var(--text);">규칙: 트랜잭션 경계 안에서 스레드를 넘기지 않는다.</b></p></div>
+          <b style="color:var(--text);">규칙: imperative 트랜잭션 경계에서 스레드를 넘기지 않는다.</b></p></div>
         <div class="card"><h4>대안</h4>
           <p>커밋 이후로 미루기 — <span style="font-family:var(--mono); font-size:13.5px;">@TransactionalEventListener(AFTER_COMMIT)</span><br>
-          유실이 안 되면 outbox 패턴.</p></div>
+          유실이 안 되면 outbox. Reactive transaction 은 <span style="font-family:var(--mono); font-size:13.5px;">executeAndAwait</span>.</p></div>
       </div>
     </div>
   </div>
@@ -2062,24 +2067,28 @@ StructuredTaskScope.<span class="f">open</span>(...).use { scope ->
 
 <!-- ============ 36. 요약 ============ -->
 <section class="slide">
-  <span class="kicker">정리</span>
-  <h2 class="title">전체 리뷰 — 스레드는 이렇게 흘러왔다</h2>
+  <span class="kicker">여기까지 정리</span>
+  <h2 class="title">스레드는 이렇게 흘러왔다 <span class="sub" style="font-size:22px;">— 번외와 최종 비교는 뒤에</span></h2>
   <div class="body" style="justify-content:center; gap:12px;">
     <div class="tl">
       <div class="tl-row"><div class="tname">1. MVC 순차 <span class="lp">P</span></div>
         <div class="track"><div class="seg io" style="left:0%; width:100%;">톰캣 스레드가 1.84s 통째로</div></div></div>
       <div class="tl-row"><div class="tname">2~3. Future 병렬 <span class="lp">P</span></div>
         <div class="track"><div class="seg io" style="left:0%; width:45%;">0.83s — 여전히 응답까지 점유</div><div class="seg hold" style="left:46%; width:20%;">풀 3~4개 관리</div></div></div>
+      <div class="tl-row"><div class="tname">4. DeferredResult <span class="lp">P</span></div>
+        <div class="track"><div class="seg io" style="left:0%; width:35%;">코어뱅킹 320ms</div><div class="seg free" style="left:36%; width:62%;">톰캣 반납 — 조립은 콜백 안으로</div></div></div>
       <div class="tl-row"><div class="tname">6~7. Coroutine <span class="lp">P</span></div>
         <div class="track"><div class="seg io" style="left:0%; width:35%;">코어뱅킹 320ms</div><div class="seg free" style="left:36%; width:30%;">suspend 로 반납</div><div class="seg io" style="left:67%; width:19%;">IO 기본 한도</div></div></div>
       <div class="tl-row"><div class="tname">8. Virtual Thread <span class="lv">V</span></div>
         <div class="track"><div class="seg vt" style="left:0%; width:3%;"></div><div class="seg free" style="left:4%; width:96%;">blocking 그대로인데 unmount — 코드 0줄 수정</div></div></div>
       <div class="tl-row"><div class="tname">9~11. VT + 코루틴 <span class="lv">V</span></div>
         <div class="track"><div class="seg vt" style="left:0%; width:35%;">톰캣 VT 코어뱅킹</div><div class="seg free" style="left:36%; width:32%;">suspend 반납</div><div class="seg work" style="left:69%; width:31%;">구조적 동시성 + 상한</div></div></div>
+      <div class="tl-row"><div class="tname">12. STS <span class="lv">V</span> <span style="color:var(--faint);">preview</span></div>
+        <div class="track"><div class="seg vt" style="left:0%; width:35%;">요청 VT 코어뱅킹</div><div class="seg io" style="left:36%; width:62%;">join 이 요청 VT 를 붙잡는다 — carrier 는 반납</div></div></div>
     </div>
     <div class="callout" style="font-size:19px;">
       Virtual Thread 는 코루틴을 대체한 것이 아니라, 코루틴이 필요했던 이유 중 하나 — <b>값싼 실행</b> — 를 제거했다.<br>
-      <span style="color:var(--muted); font-size:17px;">남은 이유 — <b style="color:var(--text);">수명·실패·취소의 구조화, 컨텍스트 전파, 간결한 코드</b> — 는 그대로다.
+      <span style="color:var(--muted); font-size:17px;">남은 이유 — <b style="color:var(--text);">수명·실패·취소의 구조화, 간결한 비동기 코드</b> — 는 그대로다.
       blocking MVC 에서도 코루틴은 여전히 유효하다.</span>
     </div>
   </div>
@@ -2146,7 +2155,8 @@ StructuredTaskScope.<span class="f">open</span>(...).use { scope ->
     <span class="ok">openBankingTaskExecutor</span>,   <span class="c">// ← 도는 스레드만 P → V</span>
 )</pre>
         <p class="note">스레드 이름을 남기려면 <b style="color:var(--muted);">newThreadPerTaskExecutor(ofVirtual().name(…))</b> — 데모 코드가 그 방식이다.
-        Spring 쪽은 <b style="color:var(--muted);">SimpleAsyncTaskExecutor.setVirtualThreads(true)</b>.</p>
+        다만 순수 ExecutorService 로 갈아끼우면 <b style="color:var(--bad);">STEP 3의 TaskDecorator 전파가 사라진다</b> —
+        전파를 유지하려면 <b style="color:var(--muted);">SimpleAsyncTaskExecutor.setVirtualThreads(true)</b> 쪽.</p>
       </div>
       <div class="col">
         <pre class="log sm"><span class="c" style="font-style:normal; color:#5C5372;">### 같은 STEP 2 코드 — 로그 첫 글자만 바뀐다</span>
@@ -2196,8 +2206,8 @@ StructuredTaskScope.<span class="f">open</span>(...).use { scope ->
       </tr>
       <tr>
         <td>컨텍스트</td>
-        <td class="good">accessor 설정 후 자동 복원</td>
-        <td class="warn2">task마다 snapshot·wrapper</td>
+        <td class="good">Spring accessor 설정 시<br>자식에 자동 복원</td>
+        <td class="warn2">executor 경계에서<br>decorator·wrapper</td>
         <td class="warn2">ScopedValue 상속<br>MDC는 bridge 필요</td>
       </tr>
       <tr>
@@ -2283,15 +2293,15 @@ StructuredTaskScope.<span class="f">open</span>(...).use { scope ->
         <div class="how" style="font-size:15px;">+ Virtual Thread + <b style="color:var(--korange);">Coroutines</b></div>
       </div>
       <div class="flow-item" style="grid-template-columns:1fr 460px; margin-left:108px;">
-        <div class="what" style="color:var(--text); font-size:18px;">주변 환경까지 non-blocking 으로 갈 수 있다</div>
+        <div class="what" style="color:var(--text); font-size:18px;">요청·응답이지만 reactive 런타임이 요구된다</div>
         <div class="how" style="font-size:15px;"><b style="color:var(--korange);">WebFlux</b> + Coroutines + R2DBC + WebClient</div>
       </div>
       <div class="flow-item" style="grid-template-columns:1fr 460px; margin-left:144px;">
-        <div class="what" style="color:var(--text); font-size:18px;">streaming / SSE / WebSocket — long-lived response</div>
+        <div class="what" style="color:var(--text); font-size:18px;">응답 자체가 스트림이다 — SSE · WebSocket · backpressure</div>
         <div class="how" style="font-size:15px;">WebFlux + Coroutines + <b style="color:var(--korange);">Kotlin Flow</b></div>
       </div>
     </div>
-    <p class="note" style="margin-top:24px;">동시 호출이 latency 를 줄이고, Virtual Thread 는 동시 요청을 처리할 때 플랫폼 스레드 비용을 낮춘다. 어느 층에 있든 작업의 <b style="color:var(--muted);">수명과 실패를 코드에 표현해야 하는 순간</b>, 코루틴이 있다.</p>
+    <p class="note" style="margin-top:24px;">동시 호출이 latency 를 줄이고, Virtual Thread 는 동시 요청의 플랫폼 스레드 비용을 낮춘다. 어느 층에 있든, Kotlin 프로덕션에서 작업의 <b style="color:var(--muted);">수명과 실패를 코드에 표현해야 하는 순간</b> 코루틴은 여전히 강한 선택이다.</p>
   </div>
 </section>
 
