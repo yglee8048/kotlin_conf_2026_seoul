@@ -27,10 +27,10 @@
 ## 실행
 
 ```bash
-# 1~7단계
+# 1–7단계
 ./gradlew bootRun
 
-# 8~12단계 (재시작 필요)
+# 8–12단계 (재시작 필요)
 ./gradlew bootRun --args='--spring.profiles.active=vt'
 ```
 
@@ -143,13 +143,13 @@ curl "localhost:8080/api/tips/point?userId=user-1"
 
 | 접두어 | 의미 | 등장 |
 |---|---|---|
-| `http-nio-8080-exec-N` | 톰캣 워커 (플랫폼) | 1단계~ |
+| `http-nio-8080-exec-N` | 톰캣 워커 (플랫폼) | 1단계 이후 |
 | `tomcat-handler-N` | 톰캣 워커 (가상) | `vt` 프로파일 |
 | `home-info-N` / `open-banking-N` / `user-log-N` | 2단계 executor | 2단계 |
 | `*-v3-N` | 3단계 executor (`CallContextTaskDecorator`) | 3·4단계 |
 | `DefaultDispatcher-worker-N` | `Dispatchers.IO` (플랫폼, 기본 64개) | 5·6·7단계 |
-| 톰캣 워커 (v5 이후 `getAccounts`) | 코어뱅킹은 모든 단계에서 톰캣 스레드에서 blocking | 5~12단계 |
-| `user-log-v7-N` | 7단계 executor (`ContextPropagatingTaskDecorator`) | 7단계~ |
+| 톰캣 워커 (v5 이후 `getAccounts`) | 코어뱅킹은 모든 단계에서 톰캣 스레드에서 blocking | 5–12단계 |
+| `user-log-v7-N` | 7단계 executor (`ContextPropagatingTaskDecorator`) | 7단계 이후 |
 | `vt-dispatch-N` | 가상 스레드 dispatcher | 10·11단계 |
 | `virtual-N` | `StructuredTaskScope` 가 만든 가상 스레드 | 12단계 |
 

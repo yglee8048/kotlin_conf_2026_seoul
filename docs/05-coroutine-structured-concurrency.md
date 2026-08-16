@@ -180,7 +180,7 @@ runInterruptible(Dispatchers.IO) { Thread.sleep(5000) } // 취소되면 즉시 �
 | 소켓 read (플랫폼 스레드) | **무시** | 인터럽트 1초 뒤에도 여전히 blocked. JDBC 드라이버 대부분·Apache HttpClient 가 여기 |
 | JDBC 쿼리 (Spring Data JDBC 포함) | **무시** | 끊으려면 `Statement.cancel()` / 쿼리 타임아웃 |
 | JDK HttpClient sync send (RestClient 기본 폴백) | 반응 | 12ms 만에 `InterruptedException` (내부가 async) |
-| 소켓 read (가상 스레드) | 반응 | 5ms 만에 `SocketException` (JEP 444) → 8~10단계 복선 |
+| 소켓 read (가상 스레드) | 반응 | 5ms 만에 `SocketException` (JEP 444) → 8–10단계 복선 |
 
 mock 이 `Thread.sleep` 이라 이 데모의 취소가 유난히 깔끔한 것이다.
 실전 JDBC·클래식 HTTP 클라이언트에서는 **진행 중인 I/O 가 끝나야 취소가 완료된다.**
