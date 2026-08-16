@@ -1,12 +1,12 @@
 # 백엔드 개발에 이제 코루틴은 필요 없을까? — 발표 대본
 
-`slides.html`의 현재 순서인 61장을 기준으로 작성한 발표자용 대본이다.
+`slides.html`의 현재 순서인 59장을 기준으로 작성한 발표자용 대본이다.
 별도 시연 없이 장표에 보이는 코드·로그·도표만으로 진행하는 약 45–50분 분량을 기준으로 한다.
 
 - 대괄호 안 문장은 발표 동작이나 강조점이다. 소리 내어 읽지 않는다.
 - 코드 전체를 낭독하지 않고, 장표에서 강조할 줄만 짚는다.
 - 로그의 `P`는 플랫폼 스레드, `V`는 가상 스레드다. 처음 등장할 때 설명하고 이후에는 이름만 사용한다.
-- 시간 조절이 필요하면 27–30번 퀴즈·취소 상세, 32–33번 번외, 52–54번 StructuredTaskScope를 먼저 줄인다.
+- 시간 조절이 필요하면 27–28번 취소 상세, 30–31번 번외, 50–52번 StructuredTaskScope를 먼저 줄인다.
 
 ## 1. 타이틀
 
@@ -222,25 +222,7 @@ Executor 경계에서는 세 단계가 필요합니다.
 
 물론 이 방식은 프로세스 장애 때 유실 가능한 작업에만 사용해야 합니다. 감사 기록이나 금융 데이터처럼 완료 보장이 필요하면 메시지 큐나 outbox가 필요합니다.
 
-## 27. STEP 5 — 퀴즈
-
-잠깐 퀴즈를 보겠습니다. `doSomething`은 시작을 출력하고 100밀리초 `delay`한 뒤 끝을 출력합니다. `delay`는 blocking이 아니라 suspend라는 점이 힌트입니다.
-
-A와 B는 현재 `runBlocking`의 자식이고, B는 실행 위치만 IO 워커로 바꿉니다. C는 아예 다른 스코프에서 시작합니다. D와 E는 두 자식을 함께 실행하되 dispatcher만 다릅니다.
-
-질문은 `after`가 언제 찍히는지, 그리고 두 작업이 정말 병렬 스레드를 필요로 하는지입니다.
-
-## 28. STEP 5 — 퀴즈 정답
-
-A는 자식이므로 끝날 때까지 기다린 뒤 `after`가 찍힙니다. B도 같습니다. dispatcher는 어디서 실행할지만 바꿀 뿐 부모-자식 관계는 바꾸지 않습니다.
-
-C는 다른 스코프의 자식이므로 `A end`를 기다리지 않습니다. 시작과 `after`의 상대 순서도 스케줄러에 따라 달라질 수 있습니다.
-
-D는 단일 스레드인데도 두 작업이 약 100밀리초에 함께 끝납니다. `delay`에서 스레드를 놓기 때문에 동시성이 성립합니다. E도 구조는 같고, 재개될 때 다른 워커로 옮겨갈 수 있습니다.
-
-앞의 첫 시도가 순차였던 이유는 코루틴이 아니라 내부의 blocking 호출 때문입니다.
-
-## 29. STEP 5 — runInterruptible
+## 27. STEP 5 — runInterruptible
 
 구조적 동시성은 한 자식이 실패하면 형제를 취소합니다. 하지만 blocking 호출에는 suspension 지점이 없기 때문에 코루틴 취소만으로는 실행 중인 호출을 즉시 멈출 수 없습니다.
 
@@ -248,17 +230,19 @@ D는 단일 스레드인데도 두 작업이 약 100밀리초에 함께 끝납�
 
 다만 `runInterruptible`이 실제 작업을 강제로 종료하는 것은 아닙니다. interrupt를 보낼 뿐이고, 하위 라이브러리가 반응해야 합니다. 취소 가능성은 I/O 계층까지 이어져야 하는 계약입니다.
 
-## 30. STEP 5 — blocking 취소의 현실
+## 28. STEP 5 — blocking 취소의 현실
 
-실제 blocking API가 interrupt에 반응하는지는 스택마다 다릅니다.
+이 그림은 다른 자식이 실패했을 때, 실행 중인 작업에 취소가 언제 반영되는지를 비교합니다.
 
-`Thread.sleep`, 커넥션 풀 대기, `Future.get`은 즉시 중단됩니다. 반면 플랫폼 스레드의 고전적인 소켓 read는 무시할 수 있고, JDBC 쿼리는 드라이버와 설정에 의존합니다. 쿼리 timeout이나 `Statement.cancel` 같은 별도 수단이 필요할 수 있습니다.
+첫 번째처럼 I/O가 시작되기 전에 실패하면 취소된 자식은 I/O를 시작하지 않고 바로 끝납니다.
 
-JDK HttpClient와 가상 스레드의 소켓 read는 이 테스트 환경에서 빠르게 반응했습니다.
+두 번째는 JDBC나 RestClient 같은 blocking I/O가 이미 진행 중인 경우입니다. `runInterruptible`은 즉시 interrupt를 보내지만, 드라이버나 HTTP 클라이언트가 이를 무시한다면 I/O가 반환된 뒤에야 취소가 반영됩니다. 구현이 interrupt에 반응한다면 더 일찍 끝날 수도 있으므로, blocking 호출의 취소는 best effort입니다.
 
-따라서 blocking MVC의 취소는 best effort입니다. 그래도 취소된 요청이 아직 시작하지 않은 후속 작업을 시작하지 않고, 스코프를 나갈 때 자식이 정리된다는 보장은 남습니다.
+세 번째는 WebClient나 R2DBC 같은 non-blocking I/O입니다. 대기 중 코루틴이 취소되면 Reactive Subscription을 즉시 취소하므로 우리 애플리케이션의 작업은 바로 끝납니다.
 
-## 31. STEP 5 — Future와 Coroutine 비교
+하지만 이미 전달된 HTTP 요청이나 DB 쿼리까지 상대 서버에서 멈춘다는 뜻은 아닙니다. 코루틴 취소와 원격 작업 중단은 별도 계약이므로 서버 timeout과 쿼리 timeout은 여전히 필요합니다.
+
+## 29. STEP 5 — Future와 Coroutine 비교
 
 공정하게 비교하면 STEP 3과 STEP 5의 응답시간과 톰캣 점유는 거의 같습니다. 둘 다 병렬이고 둘 다 아직 `runBlocking`으로 톰캣 스레드를 막습니다.
 
@@ -268,7 +252,7 @@ JDK HttpClient와 가상 스레드의 소켓 read는 이 테스트 환경에서 
 
 오픈뱅킹이 빠르게 실패하면 Future의 형제 작업은 끝까지 돌지만, 코루틴의 형제는 interrupt에 반응해 바로 취소됩니다. 다만 스레드 효율은 아직 DeferredResult보다 낮습니다. 이제 `runBlocking`을 걷어낼 차례입니다.
 
-## 32. 번외 — Executor.asCoroutineDispatcher
+## 30. 번외 — Executor.asCoroutineDispatcher
 
 기존 Executor를 `asCoroutineDispatcher`로 감싸 코루틴 문법을 사용할 수도 있습니다.
 
@@ -276,7 +260,7 @@ JDK HttpClient와 가상 스레드의 소켓 read는 이 테스트 환경에서 
 
 코루틴은 그 자체가 특정한 스레드 풀이 아닙니다. 무엇 위에서 실행할지와 분리된 계산이고, 실제 실행 위치와 비용은 dispatcher가 결정합니다.
 
-## 33. 번외 — limitedParallelism
+## 31. 번외 — limitedParallelism
 
 기존 스레드 풀의 “동시 실행 30개”를 코루틴 방식으로 표현하려면 `Dispatchers.IO.limitedParallelism(30)`을 사용할 수 있습니다.
 
@@ -284,7 +268,7 @@ JDK HttpClient와 가상 스레드의 소켓 read는 이 테스트 환경에서 
 
 다만 대기 코루틴은 계속 쌓일 수 있습니다. 그리고 이 제한은 suspension 사이의 실행 구간에 적용됩니다. suspend 호출 전체의 동시 요청 수를 제한하려면 Semaphore가 필요하고, 과부하를 막으려면 timeout과 bounded admission도 별도로 설계해야 합니다.
 
-## 34. STEP 6 — suspend controller
+## 32. STEP 6 — suspend controller
 
 `runBlocking`을 없애고 서비스와 컨트롤러를 `suspend`로 바꿉니다. 컨트롤러에는 `suspend` 한 단어만 추가되고 반환 타입은 다시 `List<HomeItem>`입니다.
 
@@ -292,7 +276,7 @@ JDK HttpClient와 가상 스레드의 소켓 read는 이 테스트 환경에서 
 
 결과적으로 톰캣 점유는 약 320밀리초입니다. 응답은 다른 워커에서 재개될 수 있지만 코드는 여전히 위에서 아래로 읽힙니다.
 
-## 35. STEP 6 — DeferredResult와 비교
+## 33. STEP 6 — DeferredResult와 비교
 
 DeferredResult와 suspend controller는 둘 다 톰캣 스레드를 320밀리초만 점유합니다.
 
@@ -300,7 +284,7 @@ DeferredResult와 suspend controller는 둘 다 톰캣 스레드를 320밀리초
 
 여기서 “간결한 코드”와 “스레드 반납”은 서로 다른 축이라는 점이 중요합니다. 코루틴은 두 효과를 함께 줄 수 있지만, 어느 하나가 자동으로 다른 하나를 뜻하지는 않습니다.
 
-## 36. STEP 7 — 코루틴 컨텍스트를 손으로 전파
+## 34. STEP 7 — 코루틴 컨텍스트를 손으로 전파
 
 코루틴도 워커로 넘어가면 일반 ThreadLocal은 사라집니다. 수동으로 해결하려면 MDC에는 `MDCContext`, 커스텀 값에는 `CallContextElement`를 만들어 코루틴 시작점마다 넣습니다.
 
@@ -308,7 +292,7 @@ DeferredResult와 suspend controller는 둘 다 톰캣 스레드를 320밀리초
 
 동작은 하지만 전파할 타입마다 element가 필요하고, 시작점마다 직접 추가해야 합니다. Executor의 TaskDecorator에서 보았던 부채가 모양만 바뀌었습니다.
 
-## 37. STEP 7 — 자동 전파 설정
+## 35. STEP 7 — 자동 전파 설정
 
 Spring Boot 4와 Spring Framework 7 환경에서는 Micrometer context propagation을 이용해 이 경계를 선언적으로 다룰 수 있습니다.
 
@@ -316,7 +300,7 @@ Spring Boot 4와 Spring Framework 7 환경에서는 Micrometer context propagati
 
 그리고 자동 전파를 활성화합니다. 이 설정은 애플리케이션 경계에서 한 번만 하고, 서비스 코드에서는 어떤 컨텍스트를 언제 옮겨야 하는지 직접 다루지 않습니다.
 
-## 38. STEP 7 — 자동 전파 결과
+## 36. STEP 7 — 자동 전파 결과
 
 서비스 코드를 보면 `MDCContext`도 `CallContextElement`도 없습니다. 평범하게 `coroutineScope`와 `async`, `blockingIo`만 사용합니다.
 
@@ -324,7 +308,7 @@ Spring Boot 4와 Spring Framework 7 환경에서는 Micrometer context propagati
 
 Spring이 suspend 컨트롤러에 코루틴 진입 컨텍스트를 붙이고, 코루틴이 재개될 때마다 등록된 accessor를 이용해 ThreadLocal을 복원하기 때문입니다.
 
-## 39. STEP 7 — 자동 전파의 경계
+## 37. STEP 7 — 자동 전파의 경계
 
 다만 완전 자동은 아닙니다. suspend 컨트롤러에서 시작한 코루틴 트리와 그 자식들은 같은 전파 element를 상속받습니다.
 
@@ -332,7 +316,7 @@ Spring이 suspend 컨트롤러에 코루틴 진입 컨텍스트를 붙이고, �
 
 핵심은 dispatcher가 아니라 코루틴의 재개 시점에 전파가 걸린다는 것입니다. 그래서 다음 단계에서 dispatcher를 가상 스레드로 바꿔도 이 설정은 그대로 동작합니다.
 
-## 40. Virtual Thread 소개
+## 38. Virtual Thread 소개
 
 이제 가상 스레드입니다. JDK 21부터 정식 기능이고, OS가 아니라 JVM이 스케줄링하는 경량 스레드입니다.
 
@@ -340,7 +324,7 @@ Spring이 suspend 컨트롤러에 코루틴 진입 컨텍스트를 붙이고, �
 
 blocking 코드를 그대로 유지하면서 플랫폼 스레드 점유 비용을 크게 줄인다는 점이 가장 큰 장점입니다. 다만 작업의 실제 지연시간이 짧아지는 것은 아닙니다.
 
-## 41. 가상 스레드 스케줄링 구조
+## 39. 가상 스레드 스케줄링 구조
 
 [왼쪽부터 오른쪽으로 따라간다]
 
@@ -350,7 +334,7 @@ carrier는 플랫폼 스레드이므로 커널 스레드와 일대일로 연결�
 
 코루틴 그림과 닮았지만, 코루틴은 언어와 라이브러리의 dispatcher가, 가상 스레드는 JVM이 스케줄링한다는 차이가 있습니다.
 
-## 42. Virtual Thread — park와 unmount
+## 40. Virtual Thread — park와 unmount
 
 코루틴에는 명시적인 suspend 지점이 있습니다. 가상 스레드는 그런 키워드가 없는데 언제 멈출까요?
 
@@ -358,7 +342,7 @@ JVM이 임의의 blocking을 사후 감지하는 것이 아닙니다. `Socket.re
 
 이벤트가 준비되면 unpark되고 다시 carrier에 mount됩니다. 반면 CPU loop는 자동으로 멈추지 않고, native나 foreign 함수 호출에서는 carrier가 pin될 수 있습니다. JDK 24 이후에는 `synchronized`로 인한 pinning은 JEP 491로 해소됐습니다.
 
-## 43. STEP 8 — 설정 한 줄
+## 41. STEP 8 — 설정 한 줄
 
 Spring Boot에서는 `spring.threads.virtual.enabled: true` 설정으로 톰캣 요청 처리 스레드를 가상 스레드로 바꿀 수 있습니다. 비즈니스 코드는 STEP 1 그대로입니다.
 
@@ -368,7 +352,7 @@ Spring Boot에서는 `spring.threads.virtual.enabled: true` 설정으로 톰캣 
 
 그리고 Boot가 바꾸는 것은 프레임워크가 관리하는 스레드입니다. 우리가 직접 만든 `ThreadPoolTaskExecutor`는 여전히 플랫폼 스레드입니다.
 
-## 44. 세 가지 실행 방식 비교
+## 42. 세 가지 실행 방식 비교
 
 첫 번째 MVC 순차 방식에서는 요청 하나가 플랫폼 스레드 하나를 응답까지 점유합니다.
 
@@ -378,7 +362,7 @@ Spring Boot에서는 `spring.threads.virtual.enabled: true` 설정으로 톰캣 
 
 코루틴은 코드와 언어 계층이 스레드를 놓고, 가상 스레드는 런타임 계층이 놓습니다. 결과는 닮았지만 작동하는 층이 다릅니다.
 
-## 45. STEP 9 — 가상 스레드가 주지 않는 것
+## 43. STEP 9 — 가상 스레드가 주지 않는 것
 
 그러면 코루틴은 이제 필요 없을까요? 가상 스레드는 값싼 실행을 주지만 병렬 실행 자체를 만들어주지는 않습니다. 부모-자식 관계, 실패 시 형제 취소, 묶음 timeout, 컨텍스트 전파도 제공하지 않습니다.
 
@@ -388,7 +372,7 @@ Spring Boot에서는 `spring.threads.virtual.enabled: true` 설정으로 톰캣 
 
 다만 병렬 blocking 호출은 아직 `Dispatchers.IO`의 플랫폼 워커에서 실행되고, 기본 동시성 한도가 새로운 병목이 될 수 있습니다.
 
-## 46. STEP 9 — 두 세계의 결합
+## 44. STEP 9 — 두 세계의 결합
 
 [위쪽과 아래쪽을 나누어 가리킨다]
 
@@ -398,7 +382,7 @@ Spring Boot에서는 `spring.threads.virtual.enabled: true` 설정으로 톰캣 
 
 결국 시스템의 처리량은 가장 낮은 천장에 의해 결정됩니다. 여기서는 `Dispatchers.IO`의 기본 한도가 남아 있습니다.
 
-## 47. STEP 10 — 가상 스레드 Dispatcher
+## 45. STEP 10 — 가상 스레드 Dispatcher
 
 플랫폼 Dispatcher의 한도를 없애기 위해 작업마다 가상 스레드를 만드는 Executor를 만들고 `asCoroutineDispatcher`로 감쌉니다. 아직 `Dispatchers.LOOM` 같은 표준 Dispatcher는 없기 때문에 직접 Bean으로 등록합니다.
 
@@ -406,7 +390,7 @@ Spring Boot에서는 `spring.threads.virtual.enabled: true` 설정으로 톰캣 
 
 STEP 7의 컨텍스트 전파도 그대로 유지됩니다. 전파가 특정 스레드 풀이 아니라 코루틴 재개 경계에 붙어 있기 때문입니다.
 
-## 48. STEP 10 — STEP 9와 비교
+## 46. STEP 10 — STEP 9와 비교
 
 STEP 9는 톰캣만 가상 스레드이고 병렬 blocking 호출은 제한된 플랫폼 워커에서 실행됩니다.
 
@@ -416,7 +400,7 @@ STEP 10은 병렬 호출도 작업별 가상 스레드에서 실행합니다. �
 
 그리고 가상 스레드라고 취소가 자동으로 생기지는 않습니다. 코루틴 취소에서 interrupt로 이어지고 대상 API가 반응해야 한다는 사슬은 동일합니다.
 
-## 49. STEP 11 — 너무 값싸서 생기는 문제
+## 47. STEP 11 — 너무 값싸서 생기는 문제
 
 스레드 풀은 두 가지 일을 겸업했습니다. 비싼 플랫폼 스레드를 재사용했고, 동시에 풀 크기로 하위 시스템 호출 수를 제한했습니다.
 
@@ -424,7 +408,7 @@ STEP 10은 병렬 호출도 작업별 가상 스레드에서 실행합니다. �
 
 스레드가 싸다는 것은 DB 커넥션이나 상대 시스템 용량까지 무한해졌다는 뜻이 아닙니다. 실행 자원과 동시성 제한을 분리해서 다시 설계해야 합니다.
 
-## 50. STEP 11 — @ConcurrencyLimit
+## 48. STEP 11 — @ConcurrencyLimit
 
 Spring Framework 7의 `@ConcurrencyLimit`은 보호할 메서드에 동시 실행 상한을 선언합니다.
 
@@ -434,7 +418,7 @@ Spring Framework 7의 `@ConcurrencyLimit`은 보호할 메서드에 동시 실�
 
 고정 스레드 풀이라는 우연한 방어선이 사라지면 외부 호출 timeout과 DB 커넥션 풀 크기가 더 중요해집니다.
 
-## 51. STEP 11 — 상한과 묶음 timeout
+## 49. STEP 11 — 상한과 묶음 timeout
 
 실제 구현에서는 `@ConcurrencyLimit(3)`으로 오픈뱅킹 동시 호출을 세 개로 제한했습니다. 여덟 요청을 동시에 보내면 장표의 로그처럼 약 500밀리초 간격으로 세 개씩 통과합니다.
 
@@ -444,7 +428,7 @@ Spring Framework 7의 `@ConcurrencyLimit`은 보호할 메서드에 동시 실�
 
 여기서 세 층의 역할이 합쳐집니다. 가상 스레드는 실행을 값싸게 하고, 코루틴은 수명과 취소를 구조화하며, `@ConcurrencyLimit`은 하위 시스템을 보호합니다. 서로 다른 문제를 풀기 때문에 서로를 대체하지 않습니다.
 
-## 52. STEP 12 — StructuredTaskScope
+## 50. STEP 12 — StructuredTaskScope
 
 공정하게 말하면 구조적 동시성은 코루틴만의 기능이 아닙니다. JDK의 `StructuredTaskScope`도 부모-자식 관계, 형제 취소, 묶음 timeout, 작업 누수 방지를 제공합니다.
 
@@ -454,7 +438,7 @@ Spring Framework 7의 `@ConcurrencyLimit`은 보호할 메서드에 동시 실�
 
 다만 이 데모의 JDK 25에서는 아직 preview API이고, 애플리케이션 스코프로 내보내는 fire-and-forget에 직접 대응하는 구조는 없습니다.
 
-## 53. STEP 12 — MDC 전파
+## 51. STEP 12 — MDC 전파
 
 StructuredTaskScope의 subtask에는 STEP 7의 자동 bridge가 저절로 적용되지 않습니다.
 
@@ -462,7 +446,7 @@ owner 스레드에서 `ContextSnapshot`을 캡처하고, 각 `Callable`을 `snap
 
 JDK 네이티브 컨텍스트에는 `ScopedValue`가 있고 subtask에 binding이 상속됩니다. 하지만 기존 SLF4J MDC는 ThreadLocal이므로 그대로 사용하는 한 별도 bridge가 필요합니다.
 
-## 54. STEP 12 — 남는 차이
+## 52. STEP 12 — 남는 차이
 
 StructuredTaskScope는 구조화 측면에서 코루틴과 매우 비슷하지만 실무 선택에는 차이가 남습니다.
 
@@ -472,7 +456,7 @@ StructuredTaskScope는 이 데모 기준 preview이고 `join()` 동안 요청 �
 
 따라서 가상 스레드가 값싼 실행을, StructuredTaskScope가 구조화를 가져온 것은 맞습니다. 하지만 현재 blocking MVC에 정식 API로 적용한다면 코루틴은 여전히 안전하고 실용적인 선택입니다.
 
-## 55. 실전 팁 — 비동기와 트랜잭션
+## 53. 실전 팁 — 비동기와 트랜잭션
 
 첫 번째 실전 팁입니다. 트랜잭션도 ThreadLocal에 묶여 있으므로 비동기 경계를 잘못 넘으면 이번에는 로그가 아니라 데이터 정합성이 깨집니다.
 
@@ -482,7 +466,7 @@ StructuredTaskScope는 이 데모 기준 preview이고 `join()` 동안 요청 �
 
 원칙은 간단합니다. 같은 원자성 단위 안에서는 스레드를 넘기지 않습니다. 커밋 이후 실행이면 `TransactionalEventListener`, 유실되면 안 되는 작업이면 outbox를 사용합니다.
 
-## 56. 실전 팁 — CoroutineScope를 Bean으로
+## 54. 실전 팁 — CoroutineScope를 Bean으로
 
 요청보다 오래 사는 fire-and-forget 코루틴이 필요하다면 `GlobalScope` 대신 애플리케이션 수명에 묶인 Bean으로 관리합니다.
 
@@ -490,7 +474,7 @@ StructuredTaskScope는 이 데모 기준 preview이고 `join()` 동안 요청 �
 
 마지막으로 `@PreDestroy`에서 취소를 전파하고 정리가 끝날 때까지 제한된 시간만 기다립니다. 다만 이것도 완료 보장은 아닙니다. 반드시 처리돼야 하는 데이터는 graceful drain이나 outbox 같은 별도 설계가 필요합니다.
 
-## 57. 전체 리뷰
+## 55. 전체 리뷰
 
 처음 MVC 순차 코드는 톰캣 플랫폼 스레드를 1.84초 동안 점유했습니다. Future로 병렬화해 latency는 0.83초가 됐지만 여러 풀을 관리해야 했고 요청 스레드는 여전히 응답까지 점유됐습니다.
 
@@ -500,7 +484,7 @@ suspend 코루틴은 코어뱅킹 이후 톰캣 스레드를 반납하면서 구
 
 가상 스레드는 코루틴이 필요했던 이유 중 “값싼 실행”을 제거했습니다. 하지만 수명, 실패, 취소의 구조화와 컨텍스트 전파, 간결한 코드라는 이유는 남아 있습니다.
 
-## 58. 번외 — non-blocking 환경
+## 56. 번외 — non-blocking 환경
 
 non-blocking 환경에서는 코루틴의 장점이 더 분명해집니다.
 
@@ -510,7 +494,7 @@ Reactor Context와 CoroutineContext는 bridge로 연결할 수 있고, 등록한
 
 SSE, WebSocket 같은 long-lived response도 긴 operator 체인 대신 Kotlin Flow로 표현할 수 있습니다. 따라서 코루틴은 blocking MVC에서만 의미 있는 타협안이 아니라 non-blocking 스택의 사용성을 높이는 도구이기도 합니다.
 
-## 59. 결론 — 선택 기준
+## 57. 결론 — 선택 기준
 
 그래서 무엇을 선택하면 될까요?
 
@@ -522,7 +506,7 @@ SSE, WebSocket 같은 long-lived response도 긴 operator 체인 대신 Kotlin F
 
 정답은 하나의 기술이 아닙니다. latency를 줄이는 병렬화, 플랫폼 스레드 비용을 줄이는 가상 스레드, 작업 관계를 구조화하는 코루틴은 서로 다른 축입니다.
 
-## 60. 참고 발표
+## 58. 참고 발표
 
 오늘은 홈 화면 하나를 예로 구조적 동시성을 살펴봤습니다. 이 개념이 더 큰 규모의 스트리밍 서버에서 어떻게 쓰이는지 궁금하다면 화면의 KotlinConf 2026 발표를 추천드립니다.
 
@@ -530,7 +514,7 @@ google.com 검색 서버가 Kotlin 코루틴으로 확장성, 스트리밍, 동�
 
 아래에는 오늘 설명의 기술 기준도 적었습니다. 이 데모는 JDK 25와 Spring Boot 4.1을 기준으로 했고, Virtual Threads, pinning, Structured Concurrency 관련 JEP와 Spring·Kotlin 공식 문서를 함께 참고했습니다.
 
-## 61. Q&A
+## 59. Q&A
 
 오늘의 질문은 “가상 스레드가 등장했으니 코루틴은 필요 없는가?”였습니다.
 

@@ -156,6 +156,36 @@
   .seg.hold { background: repeating-linear-gradient(135deg, #E44857cc, #E44857cc 6px, #c73a49cc 6px, #c73a49cc 12px); color: #fff; }
   .tl-cap { font-size: 14px; color: var(--faint); margin-top: 2px; }
 
+  /* 취소 시점 비교 다이어그램 */
+  .cancel-cases { display: flex; flex-direction: column; gap: 10px; }
+  .cancel-case { display: grid; grid-template-columns: 205px 1fr 190px; align-items: center; gap: 18px;
+    min-height: 92px; padding: 12px 18px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 13px; }
+  .cancel-case h4 { font-size: 17px; line-height: 1.3; }
+  .cancel-case .kind { margin-top: 5px; color: var(--muted); font-family: var(--mono); font-size: 12px; }
+  .cancel-lines { display: flex; flex-direction: column; gap: 7px; }
+  .cancel-line { display: grid; grid-template-columns: 70px 1fr; align-items: center; gap: 9px; }
+  .cancel-line .lname { color: var(--faint); font-family: var(--mono); font-size: 11.5px; text-align: right; }
+  .cancel-track { position: relative; height: 20px; }
+  .cancel-track::before { content: ""; position: absolute; left: 0; right: 0; top: 9px;
+    border-top: 2px solid #443957; }
+  .cancel-track .io { position: absolute; top: 0; height: 20px; border-radius: 5px; display: flex;
+    align-items: center; justify-content: center; white-space: nowrap; font: 700 11px/1 var(--mono); }
+  .cancel-track .io.blocking { color: #D8D0E7; border: 1px solid #665978;
+    background: repeating-linear-gradient(135deg, #4E4368, #4E4368 5px, #423857 5px, #423857 10px); }
+  .cancel-track .io.pending { color: #746A87; border: 1px dashed #4E4368; background: #130E1C; }
+  .cancel-track .io.nonblocking { color: #B9A1FF; border: 1px dashed #7F52FF; background: rgba(127,82,255,.10); }
+  .cancel-track .io.remote { color: #91869F; border: 1px dashed #5A4D69; background: transparent; }
+  .cancel-track .fail { position: absolute; top: -4px; color: var(--bad); font: 900 23px/1 var(--mono);
+    transform: translateX(-50%); z-index: 2; }
+  .cancel-track .stop { position: absolute; top: -2px; bottom: -2px; width: 3px; background: var(--good);
+    border-radius: 2px; transform: translateX(-50%); z-index: 2; box-shadow: 0 0 10px rgba(124,231,169,.3); }
+  .cancel-track .interrupt { position: absolute; top: -9px; color: var(--warn); font: 700 10.5px/1 var(--mono);
+    transform: translateX(-50%); white-space: nowrap; z-index: 3; }
+  .cancel-result { padding-left: 16px; border-left: 1px solid var(--line); }
+  .cancel-result b { display: block; color: var(--good); font-size: 17px; margin-bottom: 4px; }
+  .cancel-result span { color: var(--muted); font-size: 13px; line-height: 1.4; }
+
   /* 푸터 (덱 내부, 슬라이드 위에 얹힘) */
   .deckfoot { position: absolute; left: 72px; right: 72px; bottom: 24px; display: flex;
     justify-content: space-between; align-items: center; z-index: 4; pointer-events: none;
@@ -1041,7 +1071,7 @@ logTaskExecutor         : core <span class="n">5</span>  / queue <span class="n"
     <pre class="code sm"><span class="er">- val (homeCardInfos, openBankBalances) = runBlocking(Dispatchers.IO) {</span>
 <span class="er">-     launch { userLogRepository.saveEvent(userId, UserEvent.GET_HOME) }</span>
 
-<span class="ok">+ applicationCoroutineScope.launch(CoroutineName("save-event")) {   // runBlocking 밖</span>
+<span class="ok">+ applicationCoroutineScope.launch {   // runBlocking 밖</span>
 <span class="ok">+     userLogRepository.saveEvent(userId, UserEvent.GET_HOME)</span>
 <span class="ok">+ }</span>
 <span class="ok">+ val (homeCardInfos, openBankBalances) = runBlocking(Dispatchers.IO) { ... }</span></pre>
@@ -1050,60 +1080,6 @@ logTaskExecutor         : core <span class="n">5</span>  / queue <span class="n"
 <span class="lp">P[tDispatcher-worker-1]</span> [saveEvent] end            <span class="dim">27.883</span>  <span class="ok">← 응답이 나간 뒤에 끝난다</span></pre>
     <div class="callout">
       스코프 <b>밖으로 내보내는 작업이 코드에 그대로 보인다</b> — 실수로 새는 것과 의도적으로 내보내는 것이 구분된다.
-    </div>
-  </div>
-</section>
-
-<!-- ============ 17q. 간이 퀴즈 — 문제 ============ -->
-<section class="slide">
-  <span class="kicker">Step 5 · Quiz</span>
-  <h2 class="title">간이 퀴즈 — 뭐가 어떻게 찍힐까?</h2>
-  <p class="sub">힌트: 스코프인가, dispatcher 인가, 그리고 <b style="color:var(--text);">delay 는 suspend</b> 다</p>
-  <div class="body" style="justify-content:center; gap:12px;">
-    <pre class="code xs"><span class="k">suspend fun</span> <span class="f">doSomething</span>(name: String) {
-    println(<span class="s">"$name start"</span>)
-    <span class="f">delay</span>(<span class="n">100</span>)                       <span class="c">// suspend — blocking 아님!</span>
-    println(<span class="s">"$name end"</span>)
-}
-
-println(<span class="s">"before"</span>)
-runBlocking { <span class="c">/* A ~ E */</span> }
-println(<span class="s">"after"</span>)</pre>
-    <pre class="code xs"><span class="wa">A.</span> runBlocking { <span class="f">launch</span> { doSomething(<span class="s">"A"</span>) } }
-<span class="wa">B.</span> runBlocking { <span class="f">launch</span>(Dispatchers.IO) { doSomething(<span class="s">"A"</span>) } }
-<span class="wa">C.</span> runBlocking { CoroutineScope(Dispatchers.IO).<span class="f">launch</span> { doSomething(<span class="s">"A"</span>) } }
-<span class="wa">D.</span> runBlocking { <span class="f">launch</span> { doSomething(<span class="s">"A"</span>) }; <span class="f">launch</span> { doSomething(<span class="s">"B"</span>) } }
-<span class="wa">E.</span> runBlocking(Dispatchers.IO) { <span class="f">launch</span> { doSomething(<span class="s">"A"</span>) }; <span class="f">launch</span> { doSomething(<span class="s">"B"</span>) } }</pre>
-    <p class="note">각 케이스에서 before / after / start / end 가 어떤 순서로, 몇 ms 에 걸쳐 찍힐까?</p>
-  </div>
-</section>
-
-<!-- ============ 17q2. 간이 퀴즈 — 정답 ============ -->
-<section class="slide">
-  <span class="kicker">Step 5 · Quiz</span>
-  <h2 class="title">정답 <span class="sub" style="font-size:22px;">(전부 실측)</span></h2>
-  <div class="body" style="justify-content:center; gap:16px;">
-    <table class="tbl sm">
-      <tr><th style="width:36px;"></th><th>출력</th><th>왜?</th></tr>
-      <tr><td class="wa" style="color:var(--warn); font-weight:800;">A</td>
-        <td style="font-family:var(--mono); font-size:12.5px;">before · A start · <span style="color:var(--faint);">(100ms)</span> · A end · after</td>
-        <td>자식을 기다린다 — 구조적 동시성</td></tr>
-      <tr><td style="color:var(--warn); font-weight:800;">B</td>
-        <td style="font-family:var(--mono); font-size:12.5px;">A 와 똑같다 <span style="color:var(--faint);">(스레드만 IO 워커)</span></td>
-        <td><b style="color:var(--text);">dispatcher 는 '어디서'만 바꾼다</b> — 자식인 건 그대로. 스코프 ≠ dispatcher</td></tr>
-      <tr><td style="color:var(--warn); font-weight:800;">C</td>
-        <td style="font-family:var(--mono); font-size:12.5px;">before · <span class="wa">A start / after 순서 비보장</span> · A end</td>
-        <td>다른 스코프의 자식 — <b style="color:var(--text);">A end 를 기다리지 않는다.</b> 실행 시작과 after 의 상대 순서는 scheduler 가 결정</td></tr>
-      <tr><td style="color:var(--warn); font-weight:800;">D</td>
-        <td style="font-family:var(--mono); font-size:12.5px;">before · A start · B start · A end · B end · after <span class="ok">(108ms!)</span></td>
-        <td>delay 는 suspend — 스레드를 안 잡는다. <b style="color:var(--text);">단일 스레드에서도 동시!</b></td></tr>
-      <tr><td style="color:var(--warn); font-weight:800;">E</td>
-        <td style="font-family:var(--mono); font-size:12.5px;">D 와 같은 구조 <span style="color:var(--faint);">(start/end 상대 순서 비보장, 115ms)</span></td>
-        <td>dispatcher 는 결과를 바꾸지 않는다. 실측에선 A 가 worker-3 에서 시작해 worker-2 에서 끝났다 — <b style="color:var(--text);">재개는 다른 스레드일 수 있다</b></td></tr>
-    </table>
-    <div class="callout" style="font-size:18px;">
-      아까 첫 시도가 순차(1.73s)였던 건 <b>blocking 호출이라서</b>다 — suspend 세계에선 스레드 하나로도 동시성이 성립한다.<br>
-      <span style="color:var(--muted); font-size:16px;">그래서 blocking 을 코루틴에 태울 때만 dispatcher 로 내보내고(<b style="color:var(--text);">Dispatchers.IO</b>), 취소까지 챙기려면 하나 더 필요하다 →</span>
     </div>
   </div>
 </section>
@@ -1136,24 +1112,57 @@ println(<span class="s">"after"</span>)</pre>
 <section class="slide">
   <span class="kicker">Step 5 · 솔직한 이야기</span>
   <h2 class="title">실전의 blocking 은 인터럽트로 끊길까?</h2>
-  <p class="sub">스택마다 다르다 — JDK 25 데모 환경에서 응답 없는 서버에 인터럽트를 걸어본 결과</p>
-  <div class="body" style="justify-content:center; gap:16px;">
-    <table class="tbl sm">
-      <tr><th>무엇이 blocked 인가</th><th>인터럽트에</th><th>실측 / 근거</th></tr>
-      <tr><td>Thread.sleep · 커넥션 풀 대기 · Future.get</td><td class="good">즉시 끊긴다</td>
-        <td>이 데모의 mock — <span style="font-family:var(--mono); font-size:12.5px;">취소됨(인터럽트)</span> 로그가 이것</td></tr>
-      <tr><td>소켓 read — <b style="color:var(--text);">플랫폼 스레드</b></td><td class="bad">무시한다</td>
-        <td>이 데모의 classic socket 은 <b style="color:var(--text);">1초 뒤에도 blocked</b> — 클라이언트·버전별 확인 필요</td></tr>
-      <tr><td>JDBC 쿼리 (Spring Data JDBC 포함)</td><td class="warn2">드라이버 의존</td>
-        <td>JDBC 는 Thread.interrupt 취소를 보장하지 않는다 — <span style="font-family:var(--mono); font-size:12.5px;">Statement.cancel()</span> / 쿼리 타임아웃 필요</td></tr>
-      <tr><td>JDK HttpClient (RestClient 기본 폴백)</td><td class="good">반응한다</td>
-        <td>인터럽트 <b style="color:var(--text);">12ms 만에</b> InterruptedException — 내부가 async 라서</td></tr>
-      <tr><td>소켓 read — <b style="color:var(--text);">가상 스레드</b></td><td class="good">반응한다</td>
-        <td>인터럽트 <b style="color:var(--text);">5ms 만에</b> SocketException (JEP 444) — STEP 8에서 다시 만난다</td></tr>
-    </table>
-    <div class="callout" style="font-size:17px;">
-      취소 지연이 SLA 라면 cancellation 이 I/O 계층까지 연결되는 non-blocking 클라이언트(<b>WebClient</b>)가 유리하다. blocking MVC 의 취소는 <b>best effort</b> —<br>
-      <span style="color:var(--muted); font-size:16px;">그래도 남는 것: 취소된 스코프는 <b style="color:var(--text);">아직 시작 안 한 후속 작업을 시작하지 않고</b>, 빠져나올 때 자식이 정리됐음은 보장된다. 진행 중인 I/O 하나가 끝까지 도는 것과, 요청 전체가 끝까지 도는 것은 다르다.</span>
+  <p class="sub">실패 시점은 같아도, I/O 방식에 따라 <b style="color:var(--text);">취소가 반영되는 시점</b>이 달라진다</p>
+  <div class="body" style="justify-content:center; gap:12px; margin-top:18px;">
+    <div class="cancel-cases">
+      <div class="cancel-case">
+        <div><h4>I/O 시작 전 실패</h4><div class="kind">모든 방식</div></div>
+        <div class="cancel-lines">
+          <div class="cancel-line"><span class="lname">작업 자식</span><div class="cancel-track">
+            <span class="stop" style="left:48%;"></span>
+            <span class="io pending" style="left:57%; width:30%;">I/O 호출 예정</span>
+          </div></div>
+          <div class="cancel-line"><span class="lname">다른 자식</span><div class="cancel-track">
+            <span class="fail" style="left:48%;">×</span>
+          </div></div>
+        </div>
+        <div class="cancel-result"><b>즉시 중단</b><span>I/O를 시작하지 않는다</span></div>
+      </div>
+
+      <div class="cancel-case">
+        <div><h4>blocking I/O 진행 중</h4><div class="kind">JDBC · RestClient</div></div>
+        <div class="cancel-lines">
+          <div class="cancel-line"><span class="lname">작업 자식</span><div class="cancel-track">
+            <span class="io blocking" style="left:12%; width:74%;">blocking I/O</span>
+            <span class="interrupt" style="left:48%;">↓ interrupt</span>
+            <span class="stop" style="left:86%;"></span>
+          </div></div>
+          <div class="cancel-line"><span class="lname">다른 자식</span><div class="cancel-track">
+            <span class="fail" style="left:48%;">×</span>
+          </div></div>
+        </div>
+        <div class="cancel-result"><b>I/O 종료 후 중단</b><span>interrupt를 무시하는 구현</span></div>
+      </div>
+
+      <div class="cancel-case" style="min-height:112px;">
+        <div><h4>non-blocking I/O 진행 중</h4><div class="kind">WebClient · R2DBC</div></div>
+        <div class="cancel-lines">
+          <div class="cancel-line"><span class="lname">작업 자식</span><div class="cancel-track">
+            <span class="io nonblocking" style="left:12%; width:36%;">I/O 대기</span>
+            <span class="stop" style="left:48%;"></span>
+          </div></div>
+          <div class="cancel-line"><span class="lname">다른 자식</span><div class="cancel-track">
+            <span class="fail" style="left:48%;">×</span>
+          </div></div>
+          <div class="cancel-line"><span class="lname">상대 서버·DB</span><div class="cancel-track">
+            <span class="io remote" style="left:12%; width:74%;">원격 작업은 계속될 수 있음 ···</span>
+          </div></div>
+        </div>
+        <div class="cancel-result"><b>구독 즉시 취소</b><span>원격 작업 중단은 별도 계약</span></div>
+      </div>
+    </div>
+    <div class="callout" style="font-size:16px; padding:12px 20px;">
+      <b>코루틴 취소 ≠ 원격 작업 중단.</b> JDBC·RestClient 는 드라이버와 클라이언트의 interrupt 지원에 의존하고, WebClient·R2DBC 도 서버·쿼리 timeout 은 여전히 필요하다.
     </div>
   </div>
 </section>
@@ -1935,7 +1944,7 @@ StructuredTaskScope.<span class="f">open</span>(...).use { scope ->
     <span class="k">private val</span> exceptionHandler = CoroutineExceptionHandler { ctx, t -> log.warn(...) }  <span class="c">// ②</span>
 
     <span class="k">override val</span> coroutineContext =
-        supervisorJob + Dispatchers.IO + CoroutineName(<span class="s">"app-scope"</span>) + exceptionHandler
+        supervisorJob + Dispatchers.IO + exceptionHandler
 
     <span class="a">@PreDestroy</span>                                                       <span class="c">// ③</span>
     <span class="k">fun</span> <span class="f">shutdown</span>() = runBlocking {
