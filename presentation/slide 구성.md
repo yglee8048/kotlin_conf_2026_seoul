@@ -152,6 +152,15 @@ STEP 4 코드를 보여준다.
 (코루틴 강점 소개)
 ```
 
+# 16-1.
+CPU 부터 OS 와 JVM·Kotlin 영역을 거쳐 coroutine 까지 연결되는 스케줄링 계층을 그림으로 보여준다.
+커널 스레드와 platform worker 는 같은 개수로 나란히 표현하고, coroutine 은 더 많은 개수로 보여준다.
+suspension 지점에서만 worker 를 놓고 일반 blocking 호출은 worker 를 점유한다는 차이를 함께 설명한다.
+```markdown
+# CPU 에서 coroutine 까지
+CPU → [OS 스케줄러 → 커널 스레드] → JNI → [CoroutineDispatcher → platform worker → coroutine]
+```
+
 # 17.
 STEP 5 코드를 보여준다.
 코드가 화면에 잘 보이도록 적당히 몇 개의 슬라이드에 나눠서 코드를 보여준다.
@@ -213,6 +222,23 @@ virtual thread 의 특장점을 소개한다.
 ```markdown
 # 그리고 등장하는 virtual thread
 (virtual thread 소개)
+```
+
+# 23-1.
+CPU 부터 OS 와 JVM 의 스케줄링 계층을 거쳐 virtual thread 까지 연결되는 구조를 그림으로 보여준다.
+OS 영역의 스케줄러·커널 스레드와 JVM 영역의 ForkJoinPool 스케줄러·carrier thread·virtual thread 관계를 구분한다.
+커널 스레드와 carrier thread 는 같은 개수로 나란히 보여주고, virtual thread 는 더 많은 개수로 표현해 다중화 구조를 시각화한다.
+```markdown
+# CPU 에서 virtual thread 까지
+CPU → [OS 스케줄러 → 커널 스레드] → JNI → [ForkJoinPool 스케줄러 → 플랫폼 스레드(carrier) → virtual thread]
+```
+
+# 23-2.
+Coroutine 은 `suspend` 호출점에서 중단되는데 Virtual Thread 는 언제 중단을 인지하는지 설명한다.
+JVM 이 임의의 blocking 을 사후 감지하는 것이 아니라, Virtual Thread 를 지원하는 JDK blocking API 구현이 park 경로로 협력한다는 점을 강조한다.
+```markdown
+# suspend 가 없는데, 언제 멈출까?
+RUNNING → JDK blocking 지점 → park + unmount → 이벤트 준비 → unpark + remount
 ```
 
 # 24.
