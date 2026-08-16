@@ -1049,8 +1049,7 @@ logTaskExecutor         : core <span class="n">5</span>  / queue <span class="n"
 <span class="lp">P[http-nio-8080-exec-2]</span> <span class="mark">[v5] 반환</span>                  <span class="dim">27.682</span>  <span class="ok">← 즉시 반환. 1.02s → 0.85s</span>
 <span class="lp">P[tDispatcher-worker-1]</span> [saveEvent] end            <span class="dim">27.883</span>  <span class="ok">← 응답이 나간 뒤에 끝난다</span></pre>
     <div class="callout">
-      스코프 <b>밖으로 내보내는 작업이 코드에 그대로 보인다</b> — 실수로 새는 것과 의도적으로 내보내는 것이 구분된다.<br>
-      <span style="color:var(--muted); font-size:17px;">단, 이 작업은 프로세스 장애·종료 때 유실 가능한 best-effort 다. 감사·금융 기록은 queue/outbox 로 보내야 한다.</span>
+      스코프 <b>밖으로 내보내는 작업이 코드에 그대로 보인다</b> — 실수로 새는 것과 의도적으로 내보내는 것이 구분된다.
     </div>
   </div>
 </section>
